@@ -1,0 +1,10 @@
+loading model from checkpoint: results/eth_agentformer/models/model_0005.p
+
+-------------------------- loading test data --------------------------
+loading sequence biwi_eth ...
+total num samples: 1142
+------------------------------ done --------------------------------
+
+
+
+ total_num_pred: 364
