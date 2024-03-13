@@ -5,6 +5,7 @@ import sys
 import subprocess
 import shutil
 from data.preprocessor_modify import preprocess_modify
+from data.preprocessor import preprocess
 from utils.homotopy import *
 sys.path.append(os.getcwd())
 from data.dataloader import data_generator
@@ -204,13 +205,46 @@ def time_shift_modify(gt, shift_args):
         return matrix
 
 
+# checkout gt first:
+processor = preprocess(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
+                            log=log, split = SPLIT)
+
+df = pd.DataFrame(data = processor.gt[:,[0,1,2,13,15,10,11,12,16]],
+                columns = ['t','agent_id','agent_type','x','y','width','height','length','heading']
+)
+
+color_scale = px.colors.qualitative.Plotly + px.colors.qualitative.Plotly
+color_map = {str(agent_id): (color_scale[-1] if agent_id == 99 else color_scale[int(agent_id)]) for agent_id in df['agent_id']}
+fig = px.scatter(df, x='x', y='y', animation_frame='t', hover_data = ['agent_id'])
+fig.update_layout(
+    xaxis=dict(
+        range=[df.x.min(), df.x.max()],  # Set the x-axis range
+        ),
+    yaxis=dict(
+        range=[df.y.min(), df.y.max()], # Set the y-axis range
+        )
+)
+fig.show()
+
+fig = px.scatter(df, x='x', y='y', color=df['agent_id'].astype(str), hover_data = ['t'], color_discrete_map=color_map)
+fig.update_layout(
+    xaxis=dict(
+        range=[df.x.min(), df.x.max()],  # Set the x-axis range
+        ),
+    yaxis=dict(
+        range=[df.y.min(), df.y.max()], # Set the y-axis range
+        )
+)
+fig.show()
+
+
 # init IDM agent
 ego_agent = GIDM()
 
 
 # add modification loop here:
 # mod_var_dt = [-2, -1.5, -1, 0, 1, 1.5, 2]
-mod_var = [1, 2, 3, 4, 5]
+mod_var = [0.5, 1, 2, 3, 4]
 # mod_var_dt = [0]
 Nframes_max = 30
 modes_correct_matrix = np.full((len(mod_var), Nframes_max), np.nan) # initialize with nan values 
@@ -221,6 +255,8 @@ for i, b_comf in enumerate(mod_var):
     processor = preprocess_modify(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
                                 log=log, split = SPLIT, modify_func = ego_agent.sim_agent,
                                 modify_args=(['b_comf'], [b_comf], 0))
+    # processor = preprocess(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
+    #                             log=log, split = SPLIT)
 
     # access .gt here to show modified trajectories 
     df = pd.DataFrame(data = processor.gt[:,[0,1,2,13,15,10,11,12,16]],
