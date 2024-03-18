@@ -106,16 +106,17 @@ def test_model(generator, save_dir, cfg):
 
         # modify_scene(data)
 
-        # gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
-        with torch.no_grad():
-            recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
-            assert (sample_motion_3D[0] == recon_motion_3D).min().item() # check that ML is at idx 0 
-        recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+        if seq_name in SCENES:
+            # gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
+            with torch.no_grad():
+                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
+                assert (sample_motion_3D[0] == recon_motion_3D).min().item() # check that ML is at idx 0 
+            recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
 
-        # implement plotting here
-        # if data['seq'] == 'scene-0553':
-        data['scene_map'].visualize_trajs(data, sample_motion_3D)
-        # print()
+            # implement plotting here
+            # if data['seq'] == 'scene-0553':
+            data['scene_map'].visualize_trajs(data, sample_motion_3D)
+            # print()
 
 
 
@@ -161,7 +162,8 @@ if __name__ == '__main__':
                 model.load_state_dict(model_cp['model_dict'], strict=False)
 
         """ save results and compute metrics """
-        data_splits = ['val']
+        data_splits = ['train']
+        SCENES = ['scene-1100']
 
         for split in data_splits:  
             generator = data_generator(cfg, log, split=split, phase='testing')

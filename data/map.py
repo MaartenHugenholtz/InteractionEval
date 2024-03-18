@@ -293,7 +293,7 @@ class GeometricMap(Map):
 
         # colors agents 
 
-        colors = px.colors.qualitative.Plotly
+        colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
 
         # Plot the GT trajectories and predictions
         for agent_idx, agent_id in enumerate(agent_ids):

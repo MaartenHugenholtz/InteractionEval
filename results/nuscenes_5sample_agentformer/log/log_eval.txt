@@ -457,3 +457,61 @@ number of sequences to evaluate is 8
 0 ADE: 0.0000
 0 FDE: 0.0000
 -------------------------------------------------------------------
+loading results from results/nuscenes_5sample_agentformer/results/epoch_0035/val/samples
+loading GT from datasets/nuscenes_pred/label/val
+
+
+number of sequences to evaluate is 2
+evaluating seq scene-0103, forecasting frame 000002 to 000013 ADE: 1.7467 (1.7467) FDE: 2.6627 (2.6627)
+evaluating seq scene-0103, forecasting frame 000003 to 000014 ADE: 1.6464 (1.6865) FDE: 3.2210 (2.9977)
+evaluating seq scene-0103, forecasting frame 000004 to 000015 ADE: 1.2568 (1.5638) FDE: 3.3727 (3.1048)
+evaluating seq scene-0103, forecasting frame 000005 to 000016 ADE: 0.9656 (1.4308) FDE: 2.0746 (2.8759)
+evaluating seq scene-0103, forecasting frame 000006 to 000017 ADE: 1.1175 (1.3739) FDE: 2.2222 (2.7570)
+evaluating seq scene-0103, forecasting frame 000007 to 000018 ADE: 1.3297 (1.3644) FDE: 2.4838 (2.6985)
+evaluating seq scene-0103, forecasting frame 000008 to 000019 ADE: 1.3696 (1.3653) FDE: 3.2122 (2.7891)
+evaluating seq scene-0103, forecasting frame 000009 to 000020 ADE: 2.3918 (1.5193) FDE: 4.8041 (3.0914)
+evaluating seq scene-0103, forecasting frame 000010 to 000021 ADE: 3.1577 (1.7330) FDE: 5.8211 (3.4474)
+evaluating seq scene-0103, forecasting frame 000011 to 000022 ADE: 1.2513 (1.6774) FDE: 3.4460 (3.4473)
+evaluating seq scene-0103, forecasting frame 000012 to 000023 ADE: 1.5163 (1.6607) FDE: 2.6628 (3.3661)
+evaluating seq scene-0103, forecasting frame 000013 to 000024 ADE: 1.1903 (1.6304) FDE: 2.7701 (3.3277)
+evaluating seq scene-0103, forecasting frame 000014 to 000025 ADE: 2.1719 (1.6632) FDE: 4.6970 (3.4107)
+evaluating seq scene-0103, forecasting frame 000015 to 000026 ADE: 1.0586 (1.6454) FDE: 2.2981 (3.3779)
+evaluating seq scene-0103, forecasting frame 000016 to 000027 ADE: 1.3232 (1.6362) FDE: 2.2203 (3.3449)
+evaluating seq scene-0103, forecasting frame 000017 to 000028 ADE: 1.4157 (1.6301) FDE: 2.4051 (3.3188)
+evaluating seq scene-0103, forecasting frame 000018 to 000029 ADE: 0.9247 (1.6110) FDE: 1.7980 (3.2776)
+evaluating seq scene-0103, forecasting frame 000023 to 000034 ADE: 1.2889 (1.6026) FDE: 2.6133 (3.2602)
+evaluating seq scene-0103, forecasting frame 000024 to 000035 ADE: 0.8453 (1.5831) FDE: 2.0172 (3.2283)
+evaluating seq scene-0103, forecasting frame 000025 to 000036 ADE: 0.2937 (1.5202) FDE: 1.2907 (3.1338)
+evaluating seq scene-0103, forecasting frame 000026 to 000037 ADE: 0.6523 (1.4996) FDE: 2.5361 (3.1195)
+evaluating seq scene-0103, forecasting frame 000027 to 000038 ADE: 0.9460 (1.4867) FDE: 1.7746 (3.0883)
+evaluating seq scene-0916, forecasting frame 000002 to 000013 ADE: 1.5770 (1.4888) FDE: 1.1519 (3.0443)
+evaluating seq scene-0916, forecasting frame 000003 to 000014 ADE: 1.3583 (1.4859) FDE: 4.7881 (3.0830)
+evaluating seq scene-0916, forecasting frame 000004 to 000015 ADE: 1.3397 (1.4827) FDE: 1.0233 (3.0382)
+evaluating seq scene-0916, forecasting frame 000005 to 000016 ADE: 4.7569 (1.5523) FDE: 12.2423 (3.2341)
+evaluating seq scene-0916, forecasting frame 000006 to 000017 ADE: 1.4105 (1.5494) FDE: 4.1095 (3.2523)
+evaluating seq scene-0916, forecasting frame 000007 to 000018 ADE: 3.1367 (1.5818) FDE: 6.5137 (3.3189)
+evaluating seq scene-0916, forecasting frame 000008 to 000019 ADE: 1.5780 (1.5817) FDE: 3.9150 (3.3308)
+evaluating seq scene-0916, forecasting frame 000009 to 000020 ADE: 2.0367 (1.5906) FDE: 4.7087 (3.3578)
+evaluating seq scene-0916, forecasting frame 000010 to 000021 ADE: 2.0655 (1.5998) FDE: 3.9197 (3.3686)
+evaluating seq scene-0916, forecasting frame 000011 to 000022 ADE: 2.0100 (1.6075) FDE: 5.6204 (3.4111)
+evaluating seq scene-0916, forecasting frame 000012 to 000023 ADE: 2.9964 (1.6332) FDE: 8.4515 (3.5044)
+evaluating seq scene-0916, forecasting frame 000013 to 000024 ADE: 2.9278 (1.6568) FDE: 4.8607 (3.5291)
+evaluating seq scene-0916, forecasting frame 000014 to 000025 ADE: 2.4106 (1.6702) FDE: 6.0515 (3.5741)
+evaluating seq scene-0916, forecasting frame 000015 to 000026 ADE: 2.2593 (1.6806) FDE: 5.1734 (3.6022)
+evaluating seq scene-0916, forecasting frame 000016 to 000027 ADE: 3.0169 (1.7036) FDE: 8.1040 (3.6798)
+evaluating seq scene-0916, forecasting frame 000017 to 000028 ADE: 3.0026 (1.7256) FDE: 7.4799 (3.7442)
+evaluating seq scene-0916, forecasting frame 000018 to 000029 ADE: 3.2091 (1.7503) FDE: 7.1807 (3.8015)
+evaluating seq scene-0916, forecasting frame 000019 to 000030 ADE: 0.9416 (1.7371) FDE: 1.9667 (3.7714)
+------------------------------ STATS ------------------------------
+61 ADE: 1.7371
+61 FDE: 3.7714
+-------------------------------------------------------------------
+loading results from results/nuscenes_5sample_agentformer/results/epoch_0035/train/samples
+loading GT from datasets/nuscenes_pred/label/train
+
+
+number of sequences to evaluate is 8
+------------------------------ STATS ------------------------------
+0 ADE: 0.0000
+0 FDE: 0.0000
+-------------------------------------------------------------------

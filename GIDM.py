@@ -4,10 +4,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 from scipy import interpolate
 import matplotlib.pyplot as plt
+from scipy.spatial.distance import cdist
+import math
 
 class GIDM():
     def __init__(self, 
                  df_agent,
+                 df_all_gt = None,
                  replay = True,
                  delta = 2, # free-drive  exponent [-]
                  d_min = 1, # min. distance at rest [m]
@@ -28,6 +31,7 @@ class GIDM():
         self.b_comf = b_comf
 
         # init agent states and simulation settings
+        self.df_all_gt = df_all_gt
         self.replay = replay
         self.df_agent = df_agent
         self.id = df_agent['agent_id'].values[0]
@@ -45,6 +49,9 @@ class GIDM():
         self.gt_v = np.gradient(self.gt_s, self.gt_t)
 
         # intialize current distance and velocity variables (changes dynamically during simulation)
+        self.x_curr = self.gt_x[0]
+        self.y_curr = self.gt_y[0]
+        self.heading_curr = self.gt_heading[0]
         self.s_curr = self.gt_s[0]
         self.v_curr = self.gt_v[0]
 
@@ -69,7 +76,7 @@ class GIDM():
                                               fill_value=(self.gt_v[0],self.gt_v[-1]), # don't extrapolate velocity!
                                               bounds_error=False, assume_sorted=True)
 
-    def sim_step(self, t, df_scene = None, time_replay = False, use_vref = False):
+    def sim_step(self, t, df_scene = None, time_replay = False, use_vref = True):
         if self.replay:
             if (t >= self.t_start)*(t <= self.t_end):
                 if time_replay:             # time based replay
@@ -116,31 +123,65 @@ class GIDM():
                 s_new = self.s_curr + self.v_curr * self.dt
 
                 # only set  new velocity and position here!
+                self.x_curr = x_curr
+                self.y_curr = y_curr
+                self.heading_curr = heading_curr
                 self.v_curr = v_new
                 self.s_curr = s_new
+
+                assert not math.isinf(dv_dt)
 
                 return (x_curr, y_curr, v_curr, heading_curr)
             else:
                 return None
         
     def get_interacting_agent_vars(self,  df_scene, d_01_empty = 1000, v1_empty = 1000,
-                                   projection_distance = 100):
+                                   interp_points = 100):
         # find closest interacting agent and calculate velocity and projected distance
         if not df_scene.empty:
             s_fut = self.gt_s[self.gt_s >= self.s_curr]
+            s_fut = np.interp(np.linspace(s_fut[0], s_fut[-1], interp_points),
+                              s_fut, s_fut)
             x_fut = self.f_x_s(s_fut)
             y_fut = self.f_y_s(s_fut)
+            path1 = x_fut, y_fut
+
+            ego_row = pd.DataFrame({'x':[ self.x_curr], 'y': [self.y_curr], 'heading':[ self.heading_curr]})
 
             # calculate agent projections
+            for i, row in df_scene.iterrows():
+                x_proj, y_proj = self.project_trajectory(row)  
+                df_scene.loc[i, 'x_proj'] = x_proj
+                df_scene.loc[i, 'y_proj'] = y_proj
+
+                if row.agent_id != self.id:
+                    path2 = np.linspace(row.x, x_proj, interp_points), np.linspace(row.y, y_proj, interp_points)
+                    intersect_bool, idx1, idx2 = GIDM.get_path_crossing_point(path1, path2)
+                    if intersect_bool:
+                        rel_x_local, rel_y_local = GIDM.relative_position(row, ego_row)
+                        df_scene.loc[i, 'intersect_bool'] = True
+                        df_scene.loc[i, 'rel_x_local'] = rel_x_local.item()
+                        df_scene.loc[i, 'rel_y_local'] = rel_y_local.item()
+                        df_scene.loc[i, 'in_front_bool'] = rel_x_local.item() > 0
+                        
+
+
+
 
             # calculate closest intersecting agent
+            # for df_scene
 
             # calculate projection distance, and get velocity of closest  interacting agent
-
-
-            
-            d_01 = 0
-            v1 = 0
+            df_interacting_in_front = df_scene[df_scene['in_front_bool'] == True]
+            if df_interacting_in_front.empty:
+                return d_01_empty, v1_empty
+            else:  
+                # find closest agent in front, and return its variables
+                idx_closest = df_interacting_in_front['rel_x_local'].idxmin()
+                row_closest = df_interacting_in_front.loc[idx_closest]
+                d_01 = row_closest.rel_x_local # TODO: add sizes later, + option to project
+                v1 = row_closest.v
+                return d_01,  v1
         else:
             return d_01_empty, v1_empty
 
@@ -154,7 +195,34 @@ class GIDM():
         d_01_star = 0 if d_01_star < 0 else d_01_star
 
         dv_dt = self.a_IDM*(1-(v0/self.v_star)**self.delta) - self.a_IDM*(d_01_star/d_01)**2 # acceleration ego vehicle
+
+        # put limit to make sure going reverse is not possible:
+        dv_dt_min = (0-v0)/self.dt
+        dv_dt = max(dv_dt, dv_dt_min)
+
+        assert(dv_dt < 100)
+        assert(dv_dt > -100)
+
         return dv_dt
+
+
+    def project_trajectory(self, df_row, projection_distance = 100, use_gt = True):
+        if use_gt:
+            x_proj = self.df_all_gt[self.df_all_gt['agent_id'] == df_row.agent_id].iloc[-1]['x']
+            y_proj = self.df_all_gt[self.df_all_gt['agent_id'] == df_row.agent_id].iloc[-1]['y']
+        else:
+            x_proj = df_row.x + np.cos(df_row.heading) * projection_distance
+            y_proj = df_row.y + np.sin(df_row.heading) * projection_distance
+        return x_proj, y_proj
+        
+    @staticmethod
+    def get_path_crossing_point(path1, path2, crossing_threshold = 1):
+        distances = cdist(np.array(path1).T, np.array(path2).T)
+        min_distance = np.min(distances)
+        min_indices = np.argwhere(distances == min_distance)
+        intersect_bool = min_distance < crossing_threshold 
+        idx1, idx2 = min_indices[0,[0,1]]
+        return intersect_bool, idx1, idx2
 
     @staticmethod
     def calc_velocity_vector(group):
@@ -361,7 +429,7 @@ def simulate_scene(gt, modify_args, plot_mods = True):
     agents = []
     for agent_id in df.agent_id.unique():
         df_agent = df[df['agent_id']==agent_id]
-        agent_sim = GIDM(df_agent, replay = False)
+        agent_sim = GIDM(df_agent, df_all_gt = df, replay = False)
         agents.append(agent_sim)
 
     df_mod = pd.DataFrame()
