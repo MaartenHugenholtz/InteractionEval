@@ -82,6 +82,8 @@ class data_generator(object):
         self.index += 1
         
         data = seq(frame)
+        data['ids_list_scene'] = np.unique(seq.gt[:,1]) # complete list of ids over the whole scene
+        data['gt_scene'] = seq.gt
         return data      
 
     def __call__(self):

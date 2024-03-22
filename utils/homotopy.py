@@ -8,7 +8,7 @@ from enum import IntEnum
 
 
 HOMOTOPY_THRESHOLD = np.pi / 6
-
+# HOMOTOPY_THRESHOLD = 0.0
 
 
 def round_2pi(x):
