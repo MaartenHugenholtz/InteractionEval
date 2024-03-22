@@ -12,9 +12,12 @@ class GIDM():
                  df_agent,
                  df_all_gt = None,
                  replay = True,
+                 time_replay = True, 
+                 use_vref = True,
+                 t_shift = None,
                  delta = 2, # free-drive  exponent [-]
                  d_min = 1, # min. distance at rest [m]
-                 v_star = 50 / 3.6, # target velocity [m/s]
+                 v_star = 30 / 3.6, # target velocity [m/s]
                  T = 1.8, # safety time gab [s]
                  a_IDM = 2, # max. IDM acceleration [m/s^2]
                  b_comf = 3, # comfort deceleration [m/s^2]
@@ -33,9 +36,14 @@ class GIDM():
         # init agent states and simulation settings
         self.df_all_gt = df_all_gt
         self.replay = replay
+        self.time_replay = time_replay
+        self.use_vref = use_vref
         self.df_agent = df_agent
         self.id = df_agent['agent_id'].values[0]
-        self.gt_t = df_agent['t'].values
+        if not t_shift is None:
+            self.gt_t = df_agent['t'].values + t_shift
+        else:
+            self.gt_t = df_agent['t'].values
         self.gt_x = df_agent['x'].values
         self.gt_y = df_agent['y'].values
         self.gt_heading = df_agent['heading'].values
@@ -47,6 +55,26 @@ class GIDM():
         self.ds = np.sqrt(np.diff(self.gt_x)**2 + np.diff(self.gt_y)**2)
         self.gt_s[1:] = np.cumsum(self.ds)
         self.gt_v = np.gradient(self.gt_s, self.gt_t)
+
+        # check stationary points here
+        # make the last point v = 0 if v<1
+        # remove all x/ypoints that are almost stationary, and only keep the last
+        if not self.replay and (self.gt_v[-1] < 1):
+            idx_denoise = self.gt_v >1
+            idx_denoise[-1] = True
+            # overwrite variables and recalculate
+            self.gt_x = self.gt_x[idx_denoise]
+            self.gt_y = self.gt_y[idx_denoise]
+            self.gt_t = self.gt_t[idx_denoise]
+            self.gt_heading = self.gt_heading[idx_denoise]
+
+            self.gt_s = np.zeros_like(self.gt_x)
+            self.ds = np.sqrt(np.diff(self.gt_x)**2 + np.diff(self.gt_y)**2)
+            self.gt_s[1:] = np.cumsum(self.ds)
+            self.gt_v = np.gradient(self.gt_s, self.gt_t)
+
+            self.gt_v[-1] = 0 # stationary points are noisy, so to avoid incorrect extrapolation when not replaying, set last v to 0
+
 
         # intialize current distance and velocity variables (changes dynamically during simulation)
         self.x_curr = self.gt_x[0]
@@ -76,10 +104,10 @@ class GIDM():
                                               fill_value=(self.gt_v[0],self.gt_v[-1]), # don't extrapolate velocity!
                                               bounds_error=False, assume_sorted=True)
 
-    def sim_step(self, t, df_scene = None, time_replay = False, use_vref = True):
+    def sim_step(self, t, df_scene = None):
         if self.replay:
             if (t >= self.t_start)*(t <= self.t_end):
-                if time_replay:             # time based replay
+                if self.time_replay:             # time based replay
                     x_curr = self.f_x_t(t).item()
                     y_curr = self.f_y_t(t).item()
                     heading_curr = self.f_heading_t(t).item()
@@ -94,6 +122,9 @@ class GIDM():
                     y_curr = self.f_y_s(self.s_curr).item()
                     heading_curr = self.f_heading_s(self.s_curr).item()
                     v_curr = self.f_v_s(self.s_curr).item()
+
+                    # solution1: recognize stationary point and map v to 0 --> easier 
+                    # solution2: use heading for extrapolation of position
 
                     # calculate new position and set as current one for next iteration
                     s_new = self.s_curr + v_curr * self.dt
@@ -110,7 +141,7 @@ class GIDM():
                 heading_curr = self.f_heading_s(self.s_curr).item()
                 v_curr = self.v_curr
 
-                if use_vref:
+                if self.use_vref:
                     v_ref = self.f_v_s(self.s_curr).item() # use distance based reference velocity
                     self.v_star = v_ref
 
@@ -140,6 +171,10 @@ class GIDM():
         # find closest interacting agent and calculate velocity and projected distance
         if not df_scene.empty:
             s_fut = self.gt_s[self.gt_s >= self.s_curr]
+
+            if len(s_fut) == 0:
+                return d_01_empty, v1_empty # no interaction when agent is at the end of its path???
+
             s_fut = np.interp(np.linspace(s_fut[0], s_fut[-1], interp_points),
                               s_fut, s_fut)
             x_fut = self.f_x_s(s_fut)
@@ -150,7 +185,7 @@ class GIDM():
 
             # calculate agent projections
             for i, row in df_scene.iterrows():
-                x_proj, y_proj = self.project_trajectory(row)  
+                x_proj, y_proj = self.project_trajectory(row, use_gt= False, projection_var='t')  
                 df_scene.loc[i, 'x_proj'] = x_proj
                 df_scene.loc[i, 'y_proj'] = y_proj
 
@@ -163,16 +198,15 @@ class GIDM():
                         df_scene.loc[i, 'rel_x_local'] = rel_x_local.item()
                         df_scene.loc[i, 'rel_y_local'] = rel_y_local.item()
                         df_scene.loc[i, 'in_front_bool'] = rel_x_local.item() > 0
-                        
-
-
-
-
+ 
             # calculate closest intersecting agent
             # for df_scene
-
+            try:
             # calculate projection distance, and get velocity of closest  interacting agent
-            df_interacting_in_front = df_scene[df_scene['in_front_bool'] == True]
+                df_interacting_in_front = df_scene[df_scene['in_front_bool'] == True]
+            except KeyError:
+                return d_01_empty, v1_empty
+
             if df_interacting_in_front.empty:
                 return d_01_empty, v1_empty
             else:  
@@ -196,6 +230,9 @@ class GIDM():
 
         dv_dt = self.a_IDM*(1-(v0/self.v_star)**self.delta) - self.a_IDM*(d_01_star/d_01)**2 # acceleration ego vehicle
 
+        if self.v_star == 0 and v0 == 0:
+            dv_dt = 0
+
         # put limit to make sure going reverse is not possible:
         dv_dt_min = (0-v0)/self.dt
         dv_dt = max(dv_dt, dv_dt_min)
@@ -206,11 +243,13 @@ class GIDM():
         return dv_dt
 
 
-    def project_trajectory(self, df_row, projection_distance = 100, use_gt = True):
+    def project_trajectory(self, df_row, projection_var = 's', projection_time = 1, projection_distance = 100, use_gt = True):
         if use_gt:
             x_proj = self.df_all_gt[self.df_all_gt['agent_id'] == df_row.agent_id].iloc[-1]['x']
             y_proj = self.df_all_gt[self.df_all_gt['agent_id'] == df_row.agent_id].iloc[-1]['y']
         else:
+            if projection_var == 't':
+                projection_distance = df_row.v * projection_time
             x_proj = df_row.x + np.cos(df_row.heading) * projection_distance
             y_proj = df_row.y + np.sin(df_row.heading) * projection_distance
         return x_proj, y_proj
@@ -322,104 +361,6 @@ class GIDM():
 
         return df
 
-    def sim_agent(self, gt, sim_args, ego_id = '99', fps_gt = 2, project_lat_distance = True):
-        mod_pars, mod_values, start_frame_sim = sim_args
-        # modify model parameters:
-        for par, value in zip(mod_pars, mod_values):
-            self.__setattr__(par, value) 
-
-        df = GIDM.process_data(gt, ego_id = ego_id, fps_gt=fps_gt)
-        dt = 1/ fps_gt
-        gt_mod = gt.copy()
-
-        agents_on_ego_path = [id for id in list(df[df['on_path']]['agent_id'].unique()) if id != ego_id]
-
-        accels = []
-        x_list = []
-
-        df_ego_scene = df[df['agent_id']=='99'] # keep unchanged for path interpolation. Only df modified for ego
-        s_next = 0
-
-        # interpolation/extrapolation functions for modificaitons:
-        f_x = interpolate.interp1d(df_ego_scene['distance_along_path'].values, df_ego_scene['x'].values, fill_value='extrapolate')
-        f_y = interpolate.interp1d(df_ego_scene['distance_along_path'].values, df_ego_scene['y'].values, fill_value='extrapolate')
-        # f_heading = interpolate.interp1d(df_ego_scene['distance_along_path'].values, df_ego_scene['heading'].values, 
-        #                                  fill_value = (df_ego_scene['heading'].values[0], df_ego_scene['heading'].values[-1])) # don't extrapolate heading, keep constant if out of range
-
-        
-        for frame in range(start_frame_sim, int(df.frame.max())+1):
-            df_frame = df[df['frame']==frame]
-            df_agents = df_frame[df_frame['agent_id'].isin(agents_on_ego_path)]
-            df_ego = df_frame[df_frame['agent_id'].isin([ego_id])]
-            df_agent_ahead = pd.DataFrame() # intialize empty df
-            
-            if not df_agents.empty:
-                relative_positions_x = []
-                relative_positions_y = []
-                ids_infront = []
-                for index, row in df_agents.iterrows():
-                    rel_x_local, rel_y_local = GIDM.relative_position(row, df_ego.iloc[0])
-                    if rel_x_local > 0:  # vehicle must be in front
-                        relative_positions_x.append(rel_x_local)
-                        relative_positions_y.append(rel_y_local)
-                        ids_infront.append(row['agent_id'])
-
-                if relative_positions_x:
-                    # get closest vehicle ahead:
-                    idx_closest_ahead = np.argmin(relative_positions_x)
-                    agent_ahead = ids_infront[idx_closest_ahead]
-                    df_agent_ahead = df_frame[df_frame['agent_id']==agent_ahead]
-                    df_agent_ahead['rel_x_local'] = relative_positions_x[idx_closest_ahead]
-                    df_agent_ahead['rel_y_local'] = relative_positions_y[idx_closest_ahead]
-
-                    
-            ego_row = df_ego.iloc[0]
-            v0 = ego_row['v']
-
-            if df_agent_ahead.empty:
-                v1 = 999
-                d_01 = 999
-            else:
-                agent_ahead_row = df_agent_ahead.iloc[0]
-                v1 = agent_ahead_row['v']
-                d_01 = agent_ahead_row['rel_x_local'] + 0.5*(agent_ahead_row['length'] + ego_row['length']) + project_lat_distance * abs(agent_ahead_row['rel_y_local'])  # optionally project y distance
-            
-            # calculate new position based on current velocity, and new velocity based on current acceleration
-            dv_dt = self.calc_acceleration(d_01, v0, v1)
-            v_next = v0 + dv_dt*dt
-            s_next += v0*dt # keep path the same, interpolate based on changing distance 
-            x_next = f_x(s_next)  #   np.interp(s_next, df_ego_scene['distance_along_path'].values, df_ego_scene['x'].values)
-            y_next = f_y(s_next)  #   np.interp(s_next, df_ego_scene['distance_along_path'].values, df_ego_scene['y'].values)
-            heading_next = np.interp(s_next, df_ego_scene['distance_along_path'].values, df_ego_scene['heading'].values) # does not extrapolate, but keeps constant
-            
-            idx_next_ego = (df['frame']==frame+1) * (df['agent_id'].isin([ego_id]))
-            df.loc[idx_next_ego, 'v'] = v_next
-            df.loc[idx_next_ego, 'x'] = x_next
-            df.loc[idx_next_ego, 'y'] = y_next
-            df.loc[idx_next_ego, 'heading'] = heading_next
-
-            accels.append(dv_dt)
-            x_list.append(x_next)
-
-
-        # order of rows should be the same, so simply overwrite the changed columns:
-        gt_mod[:,[13, 15, 16]] = df[['x', 'y', 'heading']].to_numpy()
-
-
-        # # compare accels with real accel
-        # import matplotlib.pyplot as plt
-        # accels_real = np.gradient(df[df['agent_id']=='99']['v'].values, df[df['agent_id']=='99']['t'].values)
-        # plt.figure()
-        # plt.plot(accels_real)
-        # plt.plot(accels)
-
-        # GIDM.project_trajectories(df, plot =True)
-
-        return gt_mod
-    
-
-
-
 
 def simulate_scene(gt, modify_args, plot_mods = True):
 
@@ -429,7 +370,13 @@ def simulate_scene(gt, modify_args, plot_mods = True):
     agents = []
     for agent_id in df.agent_id.unique():
         df_agent = df[df['agent_id']==agent_id]
-        agent_sim = GIDM(df_agent, df_all_gt = df, replay = False)
+        if agent_id == '99':
+            agent_sim = GIDM(df_agent, df_all_gt = df, replay = False, time_replay = False, use_vref = False
+                             )
+            agent_sim.v_star = 20/3.6
+        else:
+            agent_sim = GIDM(df_agent, df_all_gt = df, replay = False, time_replay = False, use_vref = True,
+                             t_shift = -2)
         agents.append(agent_sim)
 
     df_mod = pd.DataFrame()
@@ -456,6 +403,9 @@ def simulate_scene(gt, modify_args, plot_mods = True):
                 range=[df.y.min(), df.y.max()], # Set the y-axis range
                 )
         )
+        fig.show()
+
+        fig = px.line_3d(df_mod, x = 'x', y = 'y', z = 't', color = 'agent_id')
         fig.show()
 
         #NOTE: not exactlt the same... Reason: noise in annations (and only forward velocity). Avoid by not extrapolating??

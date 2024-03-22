@@ -211,32 +211,34 @@ processor = preprocess_modify(cfg.data_root_nuscenes_pred, seq_name= SCENE, pars
                             log=log, split = SPLIT, modify_func = simulate_scene,
                             modify_args=(None))
 
-df = pd.DataFrame(data = processor.gt[:,[0,1,2,13,15,10,11,12,16]],
-                columns = ['t','agent_id','agent_type','x','y','width','height','length','heading']
-)
-df['agent_id'] = df['agent_id'].astype(str)
 
-fig = px.scatter(df, x='x', y='y', animation_frame='t', hover_data = ['agent_id', 't'], color='agent_id')
-fig.update_layout(
-    xaxis=dict(
-        range=[df.x.min(), df.x.max()],  # Set the x-axis range
-        ),
-    yaxis=dict(
-        range=[df.y.min(), df.y.max()], # Set the y-axis range
-        )
-)
-fig.show()
 
-fig = px.scatter(df, x='x', y='y',  hover_data = ['agent_id', 't'], color='agent_id')
-fig.update_layout(
-    xaxis=dict(
-        range=[df.x.min(), df.x.max()],  # Set the x-axis range
-        ),
-    yaxis=dict(
-        range=[df.y.min(), df.y.max()], # Set the y-axis range
-        )
-)
-fig.show()
+# df = pd.DataFrame(data = processor.gt[:,[0,1,2,13,15,10,11,12,16]],
+#                 columns = ['t','agent_id','agent_type','x','y','width','height','length','heading']
+# )
+# df['agent_id'] = df['agent_id'].astype(str)
 
-projected_trajs = project_trajectories(df)
+# fig = px.scatter(df, x='x', y='y', animation_frame='t', hover_data = ['agent_id', 't'], color='agent_id')
+# fig.update_layout(
+#     xaxis=dict(
+#         range=[df.x.min(), df.x.max()],  # Set the x-axis range
+#         ),
+#     yaxis=dict(
+#         range=[df.y.min(), df.y.max()], # Set the y-axis range
+#         )
+# )
+# fig.show()
+
+# fig = px.scatter(df, x='x', y='y',  hover_data = ['agent_id', 't'], color='agent_id')
+# fig.update_layout(
+#     xaxis=dict(
+#         range=[df.x.min(), df.x.max()],  # Set the x-axis range
+#         ),
+#     yaxis=dict(
+#         range=[df.y.min(), df.y.max()], # Set the y-axis range
+#         )
+# )
+# fig.show()
+
+# projected_trajs = project_trajectories(df)
 

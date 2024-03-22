@@ -1,8 +1,1 @@
 loading model from checkpoint: results/nuscenes_5sample_agentformer/models/model_0035.p
-
--------------------------- loading val data --------------------------
-loading sequence scene-0103 ...
-loading sequence scene-0916 ...
-total num samples: 66
------------------------------- done --------------------------------
-
