@@ -32,6 +32,7 @@ class GIDM():
         self.T = T
         self.a_IDM = a_IDM
         self.b_comf = b_comf
+        self.b_emergency = 8
 
         # init agent states and simulation settings
         self.df_all_gt = df_all_gt
@@ -62,6 +63,7 @@ class GIDM():
         if not self.replay and (self.gt_v[-1] < 1):
             idx_denoise = self.gt_v >1
             idx_denoise[-1] = True
+            idx_denoise[0]  = True
             # overwrite variables and recalculate
             self.gt_x = self.gt_x[idx_denoise]
             self.gt_y = self.gt_y[idx_denoise]
@@ -71,7 +73,10 @@ class GIDM():
             self.gt_s = np.zeros_like(self.gt_x)
             self.ds = np.sqrt(np.diff(self.gt_x)**2 + np.diff(self.gt_y)**2)
             self.gt_s[1:] = np.cumsum(self.ds)
-            self.gt_v = np.gradient(self.gt_s, self.gt_t)
+            try:
+                self.gt_v = np.gradient(self.gt_s, self.gt_t)
+            except IndexError:
+                self.gt_v = np.zeros_like(self.gt_t)
 
             self.gt_v[-1] = 0 # stationary points are noisy, so to avoid incorrect extrapolation when not replaying, set last v to 0
 
@@ -234,11 +239,11 @@ class GIDM():
             dv_dt = 0
 
         # put limit to make sure going reverse is not possible:
-        dv_dt_min = (0-v0)/self.dt
+        dv_dt_min = max((0-v0)/self.dt, -self.b_emergency)
         dv_dt = max(dv_dt, dv_dt_min)
 
-        assert(dv_dt < 100)
-        assert(dv_dt > -100)
+        assert(dv_dt < 5)
+        assert(dv_dt > -10)
 
         return dv_dt
 
@@ -364,19 +369,25 @@ class GIDM():
 
 def simulate_scene(gt, modify_args, plot_mods = True):
 
-    
+    b_comf = modify_args
+
     df = GIDM.process_data(gt)
 
     agents = []
     for agent_id in df.agent_id.unique():
         df_agent = df[df['agent_id']==agent_id]
+        # if True:
+        #     agent_sim = GIDM(df_agent, df_all_gt = df, replay = True, time_replay = True, use_vref = True,
+        #                      t_shift = None)
         if agent_id == '99':
             agent_sim = GIDM(df_agent, df_all_gt = df, replay = False, time_replay = False, use_vref = False
                              )
-            agent_sim.v_star = 20/3.6
+            # agent_sim.b_comf = b_comf
+            agent_sim.v_star = b_comf/3.6
+
         else:
             agent_sim = GIDM(df_agent, df_all_gt = df, replay = False, time_replay = False, use_vref = True,
-                             t_shift = -2)
+                             t_shift = None)
         agents.append(agent_sim)
 
     df_mod = pd.DataFrame()
@@ -412,4 +423,25 @@ def simulate_scene(gt, modify_args, plot_mods = True):
         # or due to rounding errors? Compare speeds,.. Problem likely with sorting in interpolation!
 
 
-    return gt
+    # add car type and dimensions to new df:
+    copy_keys = ['width', 'height', 'length', 'agent_type']
+    for agent_id in df['agent_id'].unique():
+        for key in copy_keys:
+            df_mod.loc[df_mod['agent_id']==agent_id, key] = df.loc[df['agent_id']==agent_id, key].values[0]
+        
+    # return modified gt:
+    gt_mod = np.ones((len(df_mod), gt.shape[1]), dtype = '<U19')
+    gt_mod.fill(-1)
+    gt_mod[:,-1] = '1.0' # is in frame col?
+    gt_mod[:, 0] = df_mod['frame'].values
+    gt_mod[:, 1] = df_mod['agent_id'].values
+    gt_mod[:, 2] = df_mod['agent_type'].values
+    gt_mod[:, 13] = df_mod['x'].values
+    gt_mod[:, 14] = np.zeros_like(df_mod['x'].values)  # z value
+    gt_mod[:, 15] = df_mod['y'].values
+    gt_mod[:, 10] = df_mod['width'].values
+    gt_mod[:, 11] = df_mod['height'].values
+    gt_mod[:, 12] = df_mod['length'].values
+    gt_mod[:, 16] = df_mod['heading'].values
+
+    return gt_mod

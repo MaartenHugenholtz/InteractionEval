@@ -184,7 +184,7 @@ def calc_closest_interaction_frame(data, distances_threshold = 10):
     return matrix
 
 
-def calc_t2cmp(interaction_matrix, ML_mode_correct_matrix,ids_list, fps = 2, plot = True):
+def calc_t2cmp(interaction_matrix, ML_mode_correct_matrix,ids_list, seq_name, fps = 2, plot = True):
 
     min_distance= interaction_matrix[:,:, 0]
     min_indices= interaction_matrix[:,:, 1]
@@ -246,7 +246,7 @@ def calc_t2cmp(interaction_matrix, ML_mode_correct_matrix,ids_list, fps = 2, plo
     T2CMP_interaction = T2CMP.copy()
     T2CMP_interaction[np.logical_not(np.nan_to_num(interaction_bool).astype(int))] = np.nan
     if plot:
-        plot_idx = 1 # 0 for time , 1 for %
+        plot_idx = 0 # 0 for time , 1 for %
         cbar_title = 'T2CMP [s]' if plot_idx == 0 else 'rT2CMP [%]'
         zmin = 0
         zmax = 1 if plot_idx == 1 else PRED_FRAMES/fps
@@ -254,7 +254,7 @@ def calc_t2cmp(interaction_matrix, ML_mode_correct_matrix,ids_list, fps = 2, plo
         customdata= np.stack([min_distance, min_indices, start_frames, end_frames, agent1_ids, agent2_ids], axis = -1)
 
         # Create heatmap
-        fig = make_subplots(rows=1, cols=2, subplot_titles=('All', 'Close interactions'))
+        fig = make_subplots(rows=1, cols=2, subplot_titles=('All' + seq_name, 'Close interactions' + seq_name))
 
         # Add heatmaps to subplots
         fig.add_trace(go.Heatmap(z=T2CMP[:,:, plot_idx],customdata= customdata, 
@@ -324,6 +324,7 @@ def test_model(generator, save_dir, cfg):
 
             seq_name_curr = seq_name
             ML_mode_correct_list = []
+            ML_mode_covered_list = []
 
         #### put stuff here to get lane ids: # make seperate data modify function!!!
         # nuscenes = NuScenes('v1.0-mini', dataroot=DATAROOT)
@@ -349,23 +350,29 @@ def test_model(generator, save_dir, cfg):
 
             homotopy_gt, homotopy_pred = calc_ML_mode_metrics(data, sample_motion_3D)
 
-
+            ML_covered = (homotopy_gt.repeat(homotopy_pred.shape[0], 1, 1)== homotopy_pred[:,:,:]).max(axis=0).values.numpy()
             ML_correct = homotopy_gt[0,...].numpy() == homotopy_pred[0,...].numpy()
+
             nan_indices = np.isnan(homotopy_gt[0,...].numpy())
             # put nan values back in place as safety measure: nan == nan --> false
             ML_correct = ML_correct.astype(float)
             ML_correct[nan_indices] = np.nan
+            ML_covered = ML_covered.astype(float)
+            ML_covered[nan_indices] = np.nan
         
             ML_mode_correct_list.append(ML_correct)
+            ML_mode_covered_list.append(ML_covered)
 
             last_frame = int( data['gt_scene'][:,0].max() - PRED_FRAMES )
             if frame == last_frame:
                 ids_list = data['ids_list_scene'].tolist()
                 interaction_matrix= calc_closest_interaction_frame(data)
                 ML_mode_correct_matrix = np.stack(ML_mode_correct_list, axis = 0)
+                ML_mode_covered_matrix = np.stack(ML_mode_covered_list, axis = 0)
 
                 # for each relevant interaction pair
-                T2CMP = calc_t2cmp(interaction_matrix, ML_mode_correct_matrix, ids_list)
+                T2CMP = calc_t2cmp(interaction_matrix, ML_mode_correct_matrix, ids_list, seq_name)
+                # T2CMP_covered = calc_t2cmp(interaction_matrix, ML_mode_covered_matrix, ids_list, seq_name)
 
                 pass
 

@@ -23,6 +23,9 @@ import plotly.express as px
 from GIDM import GIDM, simulate_scene
 
 DATAROOT = '/home/maarten/Documents/NuScenes_mini'
+# SCENE = 'scene-1100'
+# SPLIT = 'train'
+
 SCENE = 'scene-0103'
 SPLIT = 'val'
 
@@ -207,12 +210,74 @@ def time_shift_modify(gt, shift_args):
 # checkout gt first:
 # processor = preprocess(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
 #                             log=log, split = SPLIT)
-processor = preprocess_modify(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
+# processor = preprocess_modify(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
+#                             log=log, split = SPLIT, modify_func = simulate_scene,
+#                             modify_args=(None))
+
+
+
+mod_var = [0.5, 1, 2, 3, 4]
+mod_var = [23, 24, 25, 26]
+# mod_var_dt = [0]
+Nframes_max = 30
+modes_correct_matrix = np.full((len(mod_var), Nframes_max), np.nan) # initialize with nan values 
+modes_covered_matrix = np.full((len(mod_var), Nframes_max), np.nan) # initialize with nan values 
+
+for i, b_comf in enumerate(mod_var):
+    processor = preprocess_modify(cfg.data_root_nuscenes_pred, seq_name= SCENE, parser = cfg,
                             log=log, split = SPLIT, modify_func = simulate_scene,
-                            modify_args=(None))
+                            modify_args=(b_comf))
+
+
+    # store predicted angles for ML prediction
+    id_list = []
+    MLpred_angle_list = []
+    GT_angle_list = []
+    frame_list = []
+
+    for frame in range(processor.init_frame+1, processor.num_fr - processor.future_frames):
+        data = processor(frame)
+        if data:
+            sample_motion_3D = get_prediction(data)
+            modes_correct, modes_covered, angle_diff_pred, angle_diff_gt = calc_mode_metrics(data, sample_motion_3D, verbose=False)
+            # vary mode outputs; also check just ego interaction
+            modes_correct_matrix[i, frame] = modes_correct
+            modes_covered_matrix[i, frame] = modes_covered
 
 
 
+print()
+
+colors = [[0, 'red'], [1, 'green']]
+# Create a heatmap
+fig = go.Figure(data=go.Heatmap(y = mod_var,
+                   z=modes_correct_matrix,
+                #    colorscale=colors
+                   ))
+
+fig.update_layout(
+    title='Modes correct matrix',
+    xaxis=dict(title='frame'),
+    yaxis=dict(title='dt')
+)
+
+fig.show()
+
+fig = go.Figure(data=go.Heatmap(y = mod_var,
+                   z=modes_covered_matrix,
+                #    colorscale=colors
+                   ))
+
+fig.update_layout(
+    title='Modes covered matrix',
+    xaxis=dict(title='frame'),
+    yaxis=dict(title='dt')
+)
+
+fig.show()
+
+
+print()
 # df = pd.DataFrame(data = processor.gt[:,[0,1,2,13,15,10,11,12,16]],
 #                 columns = ['t','agent_id','agent_type','x','y','width','height','length','heading']
 # )
