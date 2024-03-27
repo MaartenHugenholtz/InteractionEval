@@ -38,6 +38,8 @@ class preprocess(object):
         fr_start, fr_end = frames.min(), frames.max()
         self.init_frame = fr_start
         self.num_fr = fr_end + 1 - fr_start
+        self.frames = np.unique(frames)
+        self.pred_frames = np.arange(fr_start + self.min_past_frames -1, fr_end - self.min_future_frames +1)
 
         if self.load_map:
             self.load_scene_map()
