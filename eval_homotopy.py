@@ -10,6 +10,11 @@ from utils.torch import *
 from utils.config import Config
 from model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
+from eval_utils import *
+from utils.homotopy import *
+import plotly.graph_objects as go
+import plotly.express as px
+
 
 """ setup """
 cfg = Config('nuscenes_5sample_agentformer' )
@@ -50,7 +55,7 @@ def get_model_prediction(data, sample_k):
 
 split = 'val'
 plot = False
-
+use_crossing_pairs = False
 
 
 generator = data_generator(cfg, log, split=split, phase='testing')
@@ -60,10 +65,18 @@ for scene in scene_preprocessors:
 
     gt = scene.gt
     pred_frames = scene.pred_frames
+    df_scene = process_data(gt)
+
+    # find intersecting agent trajectory pairs
+    if use_crossing_pairs:
+        raise NotImplementedError
+    else:
+        pass
 
 
 
     for frame in pred_frames:
+        # frame corresponds to the current timestep, i.e. the last of pre_motion
         data = scene(frame)
         if data is None:
             print('Frame skipped in loop')
@@ -79,8 +92,22 @@ for scene in scene_preprocessors:
             recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
         recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
 
+        # calculate roll-outs
+        df_rollout_frame = df_scene[df_scene.astype(float).agent_id.isin(data['valid_id'])]
+        fut_motion_slow = rollout_future(df_rollout_frame, frame_curr = frame)
+
+        # calculate homotopy_classes: gt, pred, roll-outs
+        fut_motion = np.stack(data['fut_motion_3D']) * data['traj_scale']
+        fut_motion_batch = torch.from_numpy(fut_motion).unsqueeze(0)
+        angle_diff_gt, homotopy_gt = identify_pairwise_homotopy(fut_motion_batch)
+        angle_diff_pred, homotopy_pred = identify_pairwise_homotopy(sample_motion_3D)
+
+        
+        pred_frame_agents = data['valid_id']
+
         if plot:
             data['scene_map'].visualize_trajs(data, sample_motion_3D)
+            # also plot roll outs here
 
 
 
