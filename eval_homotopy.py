@@ -10,11 +10,11 @@ from utils.torch import *
 from utils.config import Config
 from model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
-from eval_utils import *
+# from eval_utils import *
 from utils.homotopy import *
 import plotly.graph_objects as go
 import plotly.express as px
-
+from agent_class import Agent
 
 """ setup """
 cfg = Config('nuscenes_5sample_agentformer' )
@@ -65,7 +65,7 @@ for scene in scene_preprocessors:
 
     gt = scene.gt
     pred_frames = scene.pred_frames
-    df_scene = process_data(gt)
+    df_scene = Agent.process_data(gt)
 
     # find intersecting agent trajectory pairs
     if use_crossing_pairs:
@@ -73,6 +73,12 @@ for scene in scene_preprocessors:
     else:
         pass
 
+    # init agent modification classes here; init interpolation functions, and allow for accel/decel rollouts
+    agent_dict = {}
+    for agent in df_scene.agent_id.unique():
+        df_agent = df_scene[df_scene.agent_id == agent]
+        agent_class = Agent(df_agent)
+        agent_dict.update({agent: agent_class})
 
 
     for frame in pred_frames:
@@ -93,8 +99,17 @@ for scene in scene_preprocessors:
         recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
 
         # calculate roll-outs
-        df_rollout_frame = df_scene[df_scene.astype(float).agent_id.isin(data['valid_id'])]
-        fut_motion_slow = rollout_future(df_rollout_frame, frame_curr = frame)
+        fut_mod_decel_list = []
+        fut_mod_accel_list = []
+        for agent_id in data['valid_id']:
+            agent = agent_dict[str(int(agent_id))]
+            fut_rollout_decel = agent.rollout_future(frame_curr = frame, direction = 'decel')
+            fut_rollout_accel = agent.rollout_future(frame_curr = frame, direction = 'accel')
+            fut_mod_decel_list.append(fut_rollout_decel)
+            fut_mod_accel_list.append(fut_rollout_accel)
+        
+        fut_mod_decel = torch.from_numpy(np.stack(fut_mod_decel_list)).unsqueeze(0)
+        fut_mod_accel = torch.from_numpy(np.stack(fut_mod_accel_list)).unsqueeze(0)
 
         # calculate homotopy_classes: gt, pred, roll-outs
         fut_motion = np.stack(data['fut_motion_3D']) * data['traj_scale']
@@ -108,6 +123,7 @@ for scene in scene_preprocessors:
         if plot:
             data['scene_map'].visualize_trajs(data, sample_motion_3D)
             # also plot roll outs here
-
+            data['scene_map'].visualize_trajs(data, fut_mod_decel)
+            data['scene_map'].visualize_trajs(data, fut_mod_accel)   
 
 

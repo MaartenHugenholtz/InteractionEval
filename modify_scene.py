@@ -20,7 +20,7 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from GIDM import GIDM
+from agent_class import GIDM
 
 DATAROOT = '/home/maarten/Documents/NuScenes_mini'
 SCENE = 'scene-0103'

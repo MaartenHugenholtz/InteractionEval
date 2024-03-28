@@ -8,13 +8,13 @@ from scipy.spatial.distance import cdist
 import math
 
 """" Roll-out parameters """
-AY_MAX =  5  # m/s^2
-AX_MIN = -3 # m/s^2
-AX_MAX =  2 # m/s^2
-VMIN = 0      / 3.6 # m/s
-VMAX = 50     / 3.6 # m/s
-FUT_STEPS = 12
-DT = 0.5
+# AY_MAX =  5  # m/s^2
+# AX_MIN = -3 # m/s^2
+# AX_MAX =  2 # m/s^2
+# VMIN = 0      / 3.6 # m/s
+# VMAX = 50     / 3.6 # m/s
+# FUT_STEPS = 12
+# DT = 0.5
 
 
 def calc_path_distance(group, v_var = 'v', dt = 0.5):
@@ -28,6 +28,10 @@ def calc_velocity_vector(group, xvar = 'x', yvar = 'y', tvar = 't'):
     vy = np.gradient(group[yvar], group[tvar])
     v = np.sqrt(vx**2 + vy**2)
     return pd.Series(v, index=group.index)
+
+def calc_acceleration(group, v_var = 'v', t_var = 't'):
+    ax = np.gradient(group[v_var], group[t_var])
+    return pd.Series(ax, index=group.index)
 
 def calc_yaw_rate(group):
     yaw_rate = np.gradient(group['heading'], group['t'])
@@ -45,6 +49,7 @@ def process_data(gt, ego_id = '99', fps_gt=2):
 
     # Apply calculation functions to each group of agent_id
     df['v'] = df.groupby('agent_id').apply(calc_velocity_vector).reset_index(level=0, drop=True)
+    df['ax'] = df.groupby('agent_id').apply(calc_acceleration).reset_index(level=0, drop=True)
     df['yaw_rate'] = df.groupby('agent_id').apply(calc_yaw_rate).reset_index(level=0, drop=True)
     df['k'] = df['yaw_rate'] / df['v'] # curvature [1/m]
     df['ay'] = df['v']**2 * df['k']
@@ -60,11 +65,17 @@ def get_path_crossing_point(path1, path2, crossing_threshold = 1):
     idx1, idx2 = min_indices[0,[0,1]]
     return intersect_bool, idx1, idx2
 
-def decelerate_path(group, frame_curr):
-    frame_end = group.frame.max()
-    v_decel = group['v'] # intialize with gt velocity
-    for idx, row in group.iterrows():
+def decelerate_path(df, frame_curr):
+    df_fut = df.copy().reset_index()
+    frame_end = df_fut.frame.max()
+
+    # interpolation functions:
+
+
+    for idx, row in df_fut.iterrows():
         if row['frame'] >= frame_curr and row['frame'] < frame_end:
+            
+
             v_curr = v_decel[idx]
             ax_min_stationary = (VMIN - v_curr) / DT
             ax = max(ax_min_stationary, AX_MIN)
@@ -101,22 +112,4 @@ def interp_path(group, x_var, xp_var, fp_var):
     f = f_x(group[x_var])
     return pd.Series(f, index=group.index)
 
-def rollout_future(df, frame_curr):
 
-    df['v_decel'] = df.groupby('agent_id').apply(decelerate_path, frame_curr).reset_index(level=0, drop=True)
-    df['s_decel'] = df.groupby('agent_id').apply(calc_path_distance, 'v_decel').reset_index(level=0, drop=True)
-    df['x_decel'] = df.groupby('agent_id').apply(interp_path, 's_decel', 's', 'x').reset_index(level=0, drop=True)
-    df['y_decel'] = df.groupby('agent_id').apply(interp_path, 's_decel', 's', 'y').reset_index(level=0, drop=True)
-
-    df['v_accel'] = df.groupby('agent_id').apply(accelerate_path, frame_curr).reset_index(level=0, drop=True)
-    df['s_accel'] = df.groupby('agent_id').apply(calc_path_distance, 'v_accel').reset_index(level=0, drop=True)
-    df['x_accel'] = df.groupby('agent_id').apply(interp_path, 's_accel', 's', 'x').reset_index(level=0, drop=True)
-    df['y_accel'] = df.groupby('agent_id').apply(interp_path, 's_accel', 's', 'y').reset_index(level=0, drop=True)
-
-    #CHEK xy paths velocitu with calcalted one!!!
-    df['v_path'] =  df.groupby('agent_id').apply(calc_velocity_vector, 'x_accel', 'y_accel').reset_index(level=0, drop=True)
-
-    # reshape to fut_motion
-
-
-    return fut_motion
