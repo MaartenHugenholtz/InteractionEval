@@ -10,7 +10,7 @@ from utils.torch import *
 from utils.config import Config
 from model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
-# from eval_utils import *
+from eval_utils import *
 from utils.homotopy import *
 import plotly.graph_objects as go
 import plotly.express as px
@@ -54,7 +54,7 @@ def get_model_prediction(data, sample_k):
 """ Get predictions and compute metrics """
 
 split = 'val'
-plot = False
+plot = True
 use_crossing_pairs = False
 
 
@@ -93,7 +93,6 @@ for scene in scene_preprocessors:
         sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
         sys.stdout.flush()
 
-        gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
         with torch.no_grad():
             recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
         recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
@@ -111,19 +110,29 @@ for scene in scene_preprocessors:
         fut_mod_decel = torch.from_numpy(np.stack(fut_mod_decel_list)).unsqueeze(0)
         fut_mod_accel = torch.from_numpy(np.stack(fut_mod_accel_list)).unsqueeze(0)
 
-        # calculate homotopy_classes: gt, pred, roll-outs
+        # get roll-out combinations and check for collisions
+        fut_mod_rollout_combinations = get_rollout_combinations(fut_mod_decel, fut_mod_accel)
+        collision_matrix, min_distances = calc_collision_matrix(fut_mod_rollout_combinations)
+
+        # get gt
         fut_motion = np.stack(data['fut_motion_3D']) * data['traj_scale']
         fut_motion_batch = torch.from_numpy(fut_motion).unsqueeze(0)
+
+        # calculate homotopy_classes: gt, pred, roll-outs
         angle_diff_gt, homotopy_gt = identify_pairwise_homotopy(fut_motion_batch)
         angle_diff_pred, homotopy_pred = identify_pairwise_homotopy(sample_motion_3D)
+        angle_diff_mod, homotopy_mod = identify_pairwise_homotopy(fut_mod_rollout_combinations)
 
-        
-        pred_frame_agents = data['valid_id']
+        # what to do next: what classes are possible for each pair?
+        # if only one class -> h_final = True
+        # if homotopy_preds not in homotopy_pred --> mode-collapse
+
+
+        # pred_frame_agents = data['valid_id']
 
         if plot:
             data['scene_map'].visualize_trajs(data, sample_motion_3D)
             # also plot roll outs here
-            data['scene_map'].visualize_trajs(data, fut_mod_decel)
-            data['scene_map'].visualize_trajs(data, fut_mod_accel)   
+            data['scene_map'].visualize_trajs(data, fut_mod_rollout_combinations)
 
 
