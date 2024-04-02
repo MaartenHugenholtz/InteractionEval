@@ -99,6 +99,8 @@ class Agent():
         pred_idx = (df_agent_fut['frame'] > frame_curr) * (df_agent_fut['frame'] <= frame_curr + self.fut_steps) 
         fut_rollout = df_agent_fut[pred_idx][['x', 'y']].values
 
+        # assert(not (frame_curr == 16 and self.id =='2'))
+
         if fut_rollout.shape[0] < self.fut_steps:
             fut_rollout_repeat = np.empty((self.fut_steps, 2))
             fut_rollout_repeat[:,0] = fut_rollout[-1,0]
