@@ -53,6 +53,10 @@ class Agent():
         self.gt_s = np.zeros_like(self.gt_x)
         self.ds = np.sqrt(np.diff(self.gt_x)**2 + np.diff(self.gt_y)**2)
         self.gt_s[1:] = np.cumsum(self.ds)
+
+        # edgde case: if vehicle completely stationary, we need to add a small offset to gt_s for interpolation 
+        if self.gt_s[0] == self.gt_s[-1] == 0:
+            self.gt_s[-1] += 1e-3
         
         # distance dependent interpolation functions
         self.f_x_s = interpolate.interp1d(self.gt_s, self.gt_x, fill_value='extrapolate', assume_sorted=False) # NO UTURNS
@@ -62,10 +66,10 @@ class Agent():
     def rollout_future(self, frame_curr, direction = 'accel'):
         df_agent_fut = self.df_agent.copy().reset_index() # reinitlaize new copy of gt
 
-        for idx, row in df_agent_fut.iterrows():
+        for idx in range(len(df_agent_fut)):
+            row = df_agent_fut.loc[idx]
             if row['frame'] >= frame_curr and row['frame'] < self.frame_end:
                 # get updated row from df
-                row = df_agent_fut.loc[idx]
 
                 # calculate travelled distance ds and new s/x/y/k 
                 v_curr, s_curr = row['v'], row['s']
@@ -92,6 +96,9 @@ class Agent():
                     ax = min(ax_max_limit, self.ax_max)
                 else:
                     raise NameError('direction mode does not exist')
+                
+                assert (not np.isnan(ax))
+                assert (not np.isnan(v_curr))
 
                 v_new = v_curr + ax*self.dt
                 df_agent_fut.loc[idx + 1, 'v'] = v_new
@@ -107,6 +114,8 @@ class Agent():
             fut_rollout_repeat[:,1] = fut_rollout[-1,1]
             fut_rollout_repeat[0:fut_rollout.shape[0],:] = fut_rollout
             fut_rollout = fut_rollout_repeat
+
+        assert (not np.isnan(fut_rollout).any())
 
         return fut_rollout
 

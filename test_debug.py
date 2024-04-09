@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
             log_file = os.path.join(cfg.log_dir, 'log_eval.txt')
             cmd = f"python eval.py --dataset {cfg.dataset} --results_dir {eval_dir} --data {split} --log {log_file}"
-            # subprocess.run(cmd.split(' '))
+            subprocess.run(cmd.split(' '))
 
             # remove eval folder to save disk space
             cleanup = False
