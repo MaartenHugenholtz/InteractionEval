@@ -121,8 +121,8 @@ def calc_scene_mode_metrics(homotopy_scene_tensor, agents_scene, plot = True):
                     modes_correct_matrix = homotopy_scene_tensor[2,not_nan_idx,i, j]
                     modes_covered_matrix = homotopy_scene_tensor[3,not_nan_idx,i, j]
                     converging_trajectories_bool = homotopy_scene_tensor[4,not_nan_idx,i, j]
-                    interaction_bool = homotopy_scene_tensor[5, not_nan_idx,i, j]
-                    distance_path = homotopy_scene_tensor[6, not_nan_idx,i, j]
+                    path_intersection_bool = homotopy_scene_tensor[5, :,i, j]
+                    both_inframe_bool = homotopy_scene_tensor[6, :,i, j].to(torch.bool)
                     homotopy_gt = homotopy_scene_tensor[7, not_nan_idx,i, j]
                     homotopy_ml = homotopy_scene_tensor[8, not_nan_idx,i, j]
                     homotopy_pred0 = homotopy_scene_tensor[9, not_nan_idx,i, j]
@@ -137,10 +137,8 @@ def calc_scene_mode_metrics(homotopy_scene_tensor, agents_scene, plot = True):
                     agent1_id = agents_scene[i]
                     agent2_id = agents_scene[j]
 
-                    # TODO: find better way to check if homotopy_class_final converges! For now, just beunfix by checking length!
-                    if agent1_id == '1' and (agent2_id == '3' or agent2_id == '9'):
-                        print()
-                    if interaction_bool.max().item() and not homotopy_class_final.min(): # interaction_bool should look for entire future?? yes, only 1 interaction needed. 
+
+                    if len(path_intersection_bool[both_inframe_bool]) > 2 and path_intersection_bool[both_inframe_bool].argmax() > 0 and not homotopy_class_final.min(): # interaction_bool should look for entire future?? yes, only 1 interaction needed. 
                         # calculate mode metrics here! 
 
                         h_final_frame = homotopy_class_final.argmax().item()
@@ -151,6 +149,8 @@ def calc_scene_mode_metrics(homotopy_scene_tensor, agents_scene, plot = True):
                         mode_correct_predictions = modes_correct_matrix[:h_final_frame].numpy()
                         mode_covered_predictions = modes_covered_matrix[:h_final_frame].numpy()
                         gt_mode = homotopy_gt[h_final_frame].item()
+
+                        # iumrpove h_final handling
 
                         if len(mode_correct_predictions) > 0:
                             t2cor, pred_time = calc_time_based_metric(mode_correct_predictions)
@@ -223,6 +223,7 @@ def calc_path_homotopy(motion_tensor, agents_scene, threshold_distance = 1):
 
 def calc_intersections(motion_tensor, interp_factor = 100, threshold_distance = 0.5) :
     motion_tensor = tensor_interpolate(motion_tensor, size = (motion_tensor.shape[2]*interp_factor, 2))
+    assert(True, 'wrong use function above')
     num_simulations = motion_tensor.size(0)
     num_agents = motion_tensor.size(1)
     distances_matrix = np.ones((num_simulations, num_agents, num_agents)) * 9999
@@ -242,3 +243,74 @@ def calc_intersections(motion_tensor, interp_factor = 100, threshold_distance = 
 
     interaction_bool = torch.from_numpy(distances_matrix) < threshold_distance
     return interaction_bool, torch.from_numpy(distances_matrix)
+
+
+def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor = 10, onpath_threshold = 1.5, interaction_threshold = 20) :
+    df_scene = df_scene[(df_scene.frame >= pred_frames.min())*(df_scene.frame <= pred_frames.max())]
+    num_agents = len(agents_scene)
+    num_frames = len(pred_frames)
+    motion_tensor = torch.full((num_frames, num_agents, 2), float('nan')) # frames x agents x [x,y]
+    for i, agent in enumerate(agents_scene):
+        df_agent = df_scene[df_scene.agent_id == agent]
+        idx0 = list(pred_frames).index(df_agent.frame.values[0])
+        idx1 = list(pred_frames).index(df_agent.frame.values[-1])
+        motion_tensor[idx0:idx1+1, i,:] = torch.tensor(df_agent[['x', 'y']].values)
+
+
+    motion_tensor = motion_tensor.permute(1,0,2).unsqueeze(0)
+    # motion_tensor_interpx = tensor_interpolate(motion_tensor[:,:,:,0], scale_factor = interp_factor, mode = 'linear', align_corners=True)
+    # motion_tensor_interpy = tensor_interpolate(motion_tensor[:,:,:,1], scale_factor = interp_factor, mode = 'linear', align_corners=True)
+    # motion_tensor_interp = torch.stack((motion_tensor_interpx, motion_tensor_interpy)).permute(1,2,3,0)
+
+    path_intersection_bool = np.ones((num_frames, num_agents, num_agents)) * 9999
+    inframes_bool = np.zeros((num_frames, num_agents, num_agents)) # both agents in frame
+
+    # need interpolation here! FIX PROPER INTERPOLATION!!!!! This should resolve proper on_path bools!!! #TODO use np
+    pred_frames_interp = np.arange(pred_frames[0], pred_frames[-1]+1/interp_factor, 1/interp_factor)
+
+    for i in range(num_agents):
+        for j in range(num_agents):
+            if j > i:  # only fill upper triangular part; calcaulate each pair once
+                agent1_id = agents_scene[i]
+                agent2_id = agents_scene[j]
+                # interpolate paths + extrpolate outside of range 
+                # agent1_interp_path = 
+                agent1 = torch.tensor(
+                        np.stack([np.interp(pred_frames_interp, pred_frames, motion_tensor[0,i,:,0]),
+                                  np.interp(pred_frames_interp, pred_frames, motion_tensor[0,i,:,1])],).T
+                )
+                agent2 = torch.tensor(
+                        np.stack([np.interp(pred_frames_interp, pred_frames, motion_tensor[0,j,:,0]),
+                                  np.interp(pred_frames_interp, pred_frames, motion_tensor[0,j,:,1])],).T
+                )
+                agent1  = agent1.unsqueeze(1) # shape = (time x 1 x 2)
+                agent2  = agent2.unsqueeze(1).permute(1, 0, 2) # shape = (1 x time x 2)
+                positions_diff = agent1 - agent2
+                squared_distances = torch.sum(positions_diff ** 2, dim=-1)  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+                distances = torch.sqrt(squared_distances).numpy()  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+                distances = np.nan_to_num(distances, nan = 9999)
+                agent1_onpath = (distances.min(axis=1) < onpath_threshold)[::interp_factor]
+                agent2_onpath = (distances.min(axis=0) < onpath_threshold)[::interp_factor]
+                # path_intersection_bool[:,i, j] = agent1_onpath[::interp_factor] # agent i on shared path (i,j)
+                # path_intersection_bool[:,j, i] = agent2_onpath[::interp_factor] # agent j on shared path (i,j)
+                onpath_frames = np.maximum(agent1_onpath, agent2_onpath)
+                real_time_closest_distance = distances.diagonal().min()
+                
+                # take maximum, to get timestep path sharing boolean. Problem maximum: very big time horizon differences.. Solution: Real time difference bool.
+                # assert(not (agent1_id=='10')*(agent2_id=='5'))
+                inframes = distances.diagonal()[::10] < 9999
+                interaction = (distances.diagonal().min()<interaction_threshold)*onpath_frames
+                if len(interaction[inframes]) > 2 and interaction[inframes].argmax() > 0:
+                    interaction_bool = True
+                    print(f'Interaction detect for agents {agent1_id} and {agent2_id}')
+                else:
+                    interaction_bool = False
+                
+                path_intersection_bool[:, i,j] = interaction
+                inframes_bool[:, i,j] = inframes
+                
+
+
+    # return motion tensor shape with pred_frames. check for each overlapping frame, if it is a common waypoint@
+    return path_intersection_bool, inframes_bool
+

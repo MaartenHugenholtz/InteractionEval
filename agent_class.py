@@ -145,8 +145,8 @@ class Agent():
     
     @staticmethod
     def process_data(gt, ego_id = '99', fps_gt=2):
-        df = pd.DataFrame(data=gt[:, [0, 1, 13, 15, 10, 11, 12, 16]],
-                            columns=['frame', 'agent_id', 'x', 'y', 'width', 'height', 'length', 'heading']).astype(float)
+        df = pd.DataFrame(data=gt[:, [0, 1, 13, 15, 10, 11, 12, 16, 18]],
+                            columns=['frame', 'agent_id', 'x', 'y', 'width', 'height', 'length', 'heading', 'lane_num']).astype(float)
         df['agent_type'] = gt[:, 2]
         df['agent_id'] = df['agent_id'].astype(int).astype(str)# for plotting; categorical
         df['t'] = df['frame'] / fps_gt

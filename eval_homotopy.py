@@ -56,8 +56,8 @@ def get_model_prediction(data, sample_k):
 
 """ Get predictions and compute metrics """
 
-split = 'train'
-scene_name = 'scene-1077'
+split = 'val'
+# scene_name = 'scene-1077'
 plot = False
 use_crossing_pairs = False
 
@@ -68,15 +68,15 @@ df_modemetrics = pd.DataFrame()
 
 for scene in scene_preprocessors:
 
-    if scene.seq_name == scene_name:
+    # if scene.seq_name == scene_name:
 
         gt = scene.gt
         pred_frames = scene.pred_frames
         df_scene = Agent.process_data(gt)
         vmax_scene = df_scene.v.max()
-
-        fig = px.line_3d(df_scene, x = 'x', y = 'y', z = 'frame', color = 'agent_id')
-        fig.show()
+# px.scatter(df_scene, x = 'x', y = 'y', hover_data = ['frame', 'lane_num'], color = 'agent_id').show()
+        # fig = px.line_3d(df_scene, x = 'x', y = 'y', z = 'frame', color = 'agent_id')
+        # fig.show()
 
         # find intersecting agent trajectory pairs
         if use_crossing_pairs:
@@ -86,16 +86,19 @@ for scene in scene_preprocessors:
 
         # init agent modification classes here; init interpolation functions, and allow for accel/decel rollouts
         agent_dict = {}
-        agents_scene = list(df_scene.agent_id.unique())
+        agents_scene = list(df_scene.agent_id.unique()) # definitive order for agent ids in all tensors
         for agent in agents_scene:
             df_agent = df_scene[df_scene.agent_id == agent]
             agent_class = Agent(df_agent, v_max = vmax_scene) # impose vmax based on gt scene velocities
             agent_dict.update({agent: agent_class})
 
+        path_intersection_bool, inframes_bool = calc_path_intersections(df_scene, agents_scene, pred_frames)
+
         # initialize homotopy matrix for whole scene
         N_features = 15
         homotopy_scene_tensor = torch.full((N_features, len(pred_frames), len(agents_scene), len(agents_scene)), float('nan')) # N_features x frames x agents x agents
-
+        homotopy_scene_tensor[5,:,:,:] = torch.tensor(path_intersection_bool)
+        homotopy_scene_tensor[6,:,:,:] = torch.tensor(inframes_bool)
         for frame_idx, frame in enumerate(pred_frames):
             # frame corresponds to the current timestep, i.e. the last of pre_motion
             data = scene(frame)
@@ -137,7 +140,7 @@ for scene in scene_preprocessors:
 
 
             # calculate homotopy_classes: gt, pred, roll-outs
-            interaction_bool, gt_distance_matrix = calc_intersections(fut_motion_batch)
+            # interaction_bool, gt_distance_matrix = calc_intersections(fut_motion_batch)
             homotopy_gt = calc_path_homotopy(fut_motion_batch, agents_scene)
             homotopy_pred = calc_path_homotopy(sample_motion_3D, agents_scene)
             homotopy_mod = calc_path_homotopy(fut_mod_rollout_combinations, agents_scene)
@@ -178,8 +181,8 @@ for scene in scene_preprocessors:
             homotopy_scene_tensor[2, frame_idx, agent_idx[:, None], agent_idx] = modes_correct_matrix.to(torch.float32)
             homotopy_scene_tensor[3, frame_idx, agent_idx[:, None], agent_idx] = modes_covered_matrix.to(torch.float32)
             homotopy_scene_tensor[4, frame_idx, agent_idx[:, None], agent_idx] = converging_trajectories_bool.to(torch.float32)
-            homotopy_scene_tensor[5, frame_idx, agent_idx[:, None], agent_idx] = interaction_bool.to(torch.float32)
-            homotopy_scene_tensor[6, frame_idx, agent_idx[:, None], agent_idx] = gt_distance_matrix.to(torch.float32)
+            # homotopy_scene_tensor[5, frame_idx, agent_idx[:, None], agent_idx] = interaction_bool.to(torch.float32)
+            # homotopy_scene_tensor[6, frame_idx, agent_idx[:, None], agent_idx] = gt_distance_matrix.to(torch.float32)
 
             # add gt, ml, covered and feasible modes
             homotopy_scene_tensor[7, frame_idx, agent_idx[:, None], agent_idx] = homotopy_gt.to(torch.float32)

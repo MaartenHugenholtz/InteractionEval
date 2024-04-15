@@ -51,7 +51,7 @@ class preprocess(object):
             'Bicycle': 14, 'Bus': 15, 'Trailer': 16, 'Emergency': 17, 'Construction': 18}
         for row_index in range(len(self.gt)):
             self.gt[row_index][2] = class_names[self.gt[row_index][2]]
-        self.gt = self.gt.astype('float32')
+        self.gt = self.gt[:,:-1].astype('float32') # skip lane id
         self.xind, self.zind = 13, 15
 
     def GetID(self, data):

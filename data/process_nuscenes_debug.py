@@ -49,15 +49,22 @@ def get_prediction_challenge_split(split: str, dataroot: str) -> List[str]:
 
 
 
-DATAROOT = '/home/maarten/Documents/NuScenes_mini'
+DATAROOT = '/home/maarten/Documents/NuScenes'
+
 DATAOUT = 'datasets/nuscenes_pred/'
 USE_EGO = True
+ADD_LANE_ID = False
 
 sys.path.append(DATAROOT)
 
-nuscenes = NuScenes('v1.0-mini', dataroot=DATAROOT)
+# nuscenes = NuScenes('v1.0-mini', dataroot=DATAROOT)
+# map_version = '0.1'
+# splits = ['mini_train', 'mini_val']
+
+nuscenes = NuScenes('v1.0-trainval', dataroot=DATAROOT)
 map_version = '0.1'
-splits = ['mini_train', 'mini_val']
+splits = ['val' ]
+
 
 for split in splits:
     os.makedirs(f'{DATAOUT}/label/{split}', exist_ok=True)
@@ -80,6 +87,7 @@ for split in splits:
         scene_log_token = scene['log_token']
         log_data = nuscenes.get('log', scene_log_token)
         location = log_data['location']
+        # nusc_map = NuScenesMap(dataroot=DATAROOT, map_name=location)
 
         scene_data_orig = prediction_scenes.get(scene_name, [])
         if len(scene_data_orig) == 0:
@@ -119,7 +127,7 @@ for split in splits:
                 if USE_EGO:
                     # first get ego pose:
                     ego_pose = nuscenes.get('ego_pose', sample['data']['LIDAR_TOP'])
-                    data = np.ones(18) * -1.0
+                    data = np.ones(20) * -1.0
                     data[0] = frame_id
                     data[1] = 99.0 # unique id for ego vehicle    
                     # ego vehicle dimensions from:  https://forum.nuscenes.org/t/dimensions-of-the-ego-vehicle-used-to-gather-data/550
@@ -127,9 +135,9 @@ for split in splits:
                     data[11] = 1.562  # height
                     data[12] = 4.084 # length
                     #############################
-                    data[13] = ego_pose['translation'][0]
-                    data[14] = ego_pose['translation'][2]
-                    data[15] = ego_pose['translation'][1]
+                    data[13] = round(ego_pose['translation'][0], 3)
+                    data[14] = round(ego_pose['translation'][2], 3)
+                    data[15] = round(ego_pose['translation'][1], 3)
                     data[16] = Quaternion(ego_pose['rotation']).yaw_pitch_roll[0]
                     data[17] = 1 # ego vehicle constant in data
                     data = data.astype(str)
@@ -146,7 +154,7 @@ for split in splits:
                         continue
                     instances_in_frame.append(instance)
                     # get data
-                    data = np.ones(18) * -1.0
+                    data = np.ones(20) * -1.0
                     data[0] = frame_id
                     data[1] = all_instances.index(instance)
                     data[10] = annotation['size'][0]
@@ -183,6 +191,26 @@ for split in splits:
         # Generate Maps
         map_name = nuscenes.get('log', scene['log_token'])['location']
         nusc_map = NuScenesMap(dataroot=DATAROOT, map_name=map_name)
+
+        if ADD_LANE_ID:
+            #### Add lane-ids ####
+            unique_lanes = []
+            for i in range(len(cvt_data)):
+                lane_radius_detection = 0
+                lane_id = nusc_map.get_closest_lane(x = float(cvt_data[i,13]), y = float(cvt_data[i,15]), radius = lane_radius_detection)
+                while len(lane_id) == 0:
+                    lane_radius_detection += 1
+                    lane_id = nusc_map.get_closest_lane(x = float(cvt_data[i,13]), y = float(cvt_data[i,15]), radius = lane_radius_detection)
+                cvt_data[i,19] = lane_id
+
+
+                if not lane_id in unique_lanes:
+                    unique_lanes.append(lane_id)
+
+                lane_num = unique_lanes.index(lane_id)
+                cvt_data[i,18] = lane_num
+            ######################
+
         scale = 3.0 ###### VERY IMPORTANT PARAMETER!
         margin = 75
         xy = cvt_data[:, [13, 15]].astype(np.float32)
@@ -225,7 +253,7 @@ for split in splits:
         cv2.imwrite(f'{DATAOUT}/map_{map_version}/{scene_name}.png', np.transpose(map_mask_vehicle, (1, 2, 0)))
         cv2.imwrite(f'{DATAOUT}/map_{map_version}/vis_{scene_name}.png', cv2.cvtColor(np.transpose(map_mask_plot, (1, 2, 0)), cv2.COLOR_RGB2BGR))
 
-        pred_num = int(cvt_data[:, -1].astype(np.float32).sum())
+        pred_num = int(cvt_data[:, 17].astype(np.float32).sum())
         if not(USE_EGO):
             assert pred_num == len(scene_data_orig)
         total_pred += pred_num
