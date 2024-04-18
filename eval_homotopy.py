@@ -57,7 +57,7 @@ def get_model_prediction(data, sample_k):
 """ Get predictions and compute metrics """
 
 split = 'val'
-# scene_name = 'scene-1077'
+scene_name = 'scene-0099'
 plot = False
 use_crossing_pairs = False
 
@@ -68,7 +68,7 @@ df_modemetrics = pd.DataFrame()
 
 for scene in scene_preprocessors:
 
-    # if scene.seq_name == scene_name:
+    if scene.seq_name == scene_name:
 
         gt = scene.gt
         pred_frames = scene.pred_frames
@@ -92,7 +92,7 @@ for scene in scene_preprocessors:
             agent_class = Agent(df_agent, v_max = vmax_scene) # impose vmax based on gt scene velocities
             agent_dict.update({agent: agent_class})
 
-        path_intersection_bool, inframes_bool = calc_path_intersections(df_scene, agents_scene, pred_frames)
+        path_intersection_bool, inframes_bool,_ = calc_path_intersections(df_scene, agents_scene, pred_frames)
 
         # initialize homotopy matrix for whole scene
         N_features = 15

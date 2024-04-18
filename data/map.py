@@ -349,5 +349,168 @@ class GeometricMap(Map):
         # Show the Plotly figure
         fig.show()
 
+    def calc_pathhomotopy_pair(self, motion_agent1, motion_agent2):
+        if isinstance(motion_agent1, np.ndarray):
+            motion_agent1 = torch.tensor(motion_agent1)
+            motion_agent2 = torch.tensor(motion_agent2)
+
+        agent1  = motion_agent1.unsqueeze(1) # shape = (time x 1 x 2)
+        agent2  = motion_agent2.unsqueeze(1).permute(1, 0, 2) # shape = (1 x time x 2)
+        positions_diff = agent1 - agent2
+        squared_distances = torch.sum(positions_diff ** 2, dim=-1)  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+        distances = torch.sqrt(squared_distances).numpy()  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+        min_distance = distances.min()
+        indices = np.where(distances == min_distance)
+        idx1, idx2 = indices[0][-1], indices[1][-1] # if there are multiple indices, take the last one (in case of stationary vehicles)
+        homotopy_class = 0 if idx1 == idx2 else (1 if idx1 < idx2 else 2) 
+        return homotopy_class
+
+    def visualize_interactionpair(self, data, prediction, rollout, rollout_collisions, agent_pair):
+        """
+        Plots GT trajectories (full)
+        And predictions for all agents (grouped per scene prediction)
+        """
+        agent1_id, agent2_id  = agent_pair
+        agent1_idx = data['valid_id'].index(agent1_id)
+        agent2_idx = data['valid_id'].index(agent2_id)
+
+        pre_motion = np.stack(data['pre_motion_3D']) * data['traj_scale']
+        fut_motion = np.stack(data['fut_motion_3D']) * data['traj_scale']
+        all_motion = np.concatenate((pre_motion, fut_motion), axis=1)
+
+        # index agent_pair
+        # all_motion = all_motion[[agent1_idx,agent2_idx]]
+        # prediction = prediction[:,[agent1_idx,agent2_idx]]
+        # rollout = rollout # rollout already indexed for [agent1_idx,agent2_idx]
+        # # calculate homotopy classes 
+        # gt_class = self.calc_pathhomotopy_pair(all_motion[0,...], all_motion[1,...])
+        # pred_classes = [self.calc_pathhomotopy_pair(prediction[pred, 0,...], prediction[pred, 1,...]) for pred in range(prediction.shape[0])]
+        # rollout_classes = [self.calc_pathhomotopy_pair(rollout[r, 0,...], rollout[r, 1,...]) for r in range(rollout.shape[0])]
+
+        # focus on pairs only
+        all_motion_pair = all_motion[[agent1_idx,agent2_idx]] # for plotting
+        fut_motion_pair = fut_motion[[agent1_idx,agent2_idx]] 
+        prediciton_pair = prediction[:,[agent1_idx,agent2_idx]]
+        rollout_pair = rollout # already only focus agent pair
+
+        # calc homotopy classes with free-end angles
+        fut_motion_pair_batch = torch.from_numpy(fut_motion_pair).unsqueeze(0)
+        angle_diff_gt, homotopy_gt = identify_pairwise_homotopy(fut_motion_pair_batch)
+        angle_diff_pred, homotopy_pred = identify_pairwise_homotopy(prediciton_pair)
+        angle_diff_rollout, homotopy_rollout = identify_pairwise_homotopy(rollout_pair)
+
+        gt_class = homotopy_gt[:,0,1]
+        pred_classes = homotopy_pred[:,0,1]
+        rollout_classes = homotopy_rollout[:,0,1]
 
 
+
+        # check rollout collisions:
+        rollout_collisions_bool = [rollout_collisions[i,...].max().item() for i in range(rollout_collisions.shape[0])]
+        
+        # transform points to map 
+        motion_map = self.to_map_points(all_motion_pair)
+        pred_map = self.to_map_points(prediciton_pair)
+        rollout_map = self.to_map_points(rollout_pair)
+
+        margin = 5
+        # x and y indices reveresd because of motion mapping (same for plotting indices)
+        all_x = np.concatenate([motion_map[...,1].flatten(),pred_map[...,1].flatten(), rollout_map[...,1].flatten()])
+        all_y = np.concatenate([motion_map[...,0].flatten(),pred_map[...,0].flatten(), rollout_map[...,0].flatten()])
+
+        # index of current timestamp:
+        idx_cur = pre_motion.shape[1] - 1
+
+
+
+        agent_ids = [data['valid_id'][agent1_idx], data['valid_id'][agent2_idx]]
+        agent_headings = [data['heading'][agent1_idx], data['heading'][agent2_idx]]
+        agent_lengths = data['pre_data'][0][[agent1_idx,agent2_idx], :][:,12] # idx = 12, and first timestep of predata
+        agent_widths = data['pre_data'][0][[agent1_idx,agent2_idx], :][:,10]   # idx = 10
+
+        img = 255 - np.transpose(self.data, (1, 2, 0))  # nicer colors
+
+        # Create a Plotly figure
+        fig = go.Figure()
+
+        fig = px.imshow(img)
+
+        # colors agents 
+
+        colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
+
+        # Plot the GT trajectories and predictions
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(go.Scatter(
+                x=motion_map[agent_idx,:,1],
+                y=motion_map[agent_idx,:,0],  # x and y reversed for image
+                mode='lines+markers',
+                name = f'gt_agent_{agent_id}',
+                # showlegend= (agent_idx==0),
+                legendgroup='gt',
+                legendgrouptitle_text=f'gt, h_class: {gt_class[0]}',
+                line=dict(color=colors[agent_idx])
+            ))
+
+            # add vehicle shapes:
+            x_points, y_points = self.rotate_car(xc = motion_map[agent_idx,idx_cur,0], 
+                                             yc = motion_map[agent_idx,idx_cur,1], 
+                                             l = agent_lengths[agent_idx]*3, # size still needs to be scaled
+                                             w = agent_widths[agent_idx]*3, # size still needs to be scaled
+                                             heading = agent_headings[agent_idx])
+            fig.add_trace(
+                go.Scatter(x=y_points, y=x_points, 
+                           fill="toself",
+                           mode = 'lines',
+                            legendgroup='gt',
+                            name = f'gt_agent_{agent_id}',
+                            showlegend=False,
+                            line=dict(color=colors[agent_idx]),
+                            ))
+            
+
+            for pred in range(pred_map.shape[0]):
+                fig.add_trace(go.Scatter(
+                    x=pred_map[pred,agent_idx,:,1],
+                    y=pred_map[pred,agent_idx,:,0],  # x and y reversed for image
+                    mode='lines + markers',
+                    name = f'pred{pred+1}_agent{agent_id}',
+                    # showlegend= (agent_idx==0),
+                    legendgroup=f'pred{pred+1}',
+                    legendgrouptitle_text=f'pred{pred+1}, h_class: {pred_classes[pred]}',
+                    opacity=0.5,
+                    line=dict(color=colors[agent_idx], dash='dash'),
+                    visible = True if pred == 0 else 'legendonly'
+                    ))
+                
+            rollout_symbols = ['square', 'x']
+            r_markersize = 6
+            for r in range(rollout_map.shape[0]):
+                fig.add_trace(go.Scatter(
+                    x=rollout_map[r,agent_idx,:,1],
+                    y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
+                    mode='lines + markers',
+                    name = f'rollout{r+1}_agent{agent_id}',
+                    marker_symbol= rollout_symbols[r],
+                    marker_size = r_markersize,
+                    # showlegend= (agent_idx==0),
+                    legendgroup=f'rollout{r+1}',
+                    legendgrouptitle_text=f'rollout{r+1}, h_class: {rollout_classes[r]}, collision: {rollout_collisions_bool[r]}',
+                    opacity=0.5,
+                    line=dict(color=colors[agent_idx], dash='dot')
+                    ))
+
+
+        # Update layout to remove axes
+        fig.update_layout(
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            title=dict(text = data['seq'] + ', frame-' + str(data['frame'])),
+        )
+        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin])
+        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin]) # reveresed because image
+
+        # # Show the Plotly figure
+        # fig.show()
+        # print()
+        return fig

@@ -194,7 +194,7 @@ def check_consistency(predictions):
     return True
 
 
-def calc_path_homotopy(motion_tensor, agents_scene, threshold_distance = 1):
+def calc_path_homotopy(motion_tensor, agents_scene, threshold_distance = 1, path_crossing_threshold = 1):
     num_simulations = motion_tensor.size(0)
     num_agents = motion_tensor.size(1)
     homotopy_classes = torch.zeros((num_simulations, num_agents, num_agents))
@@ -214,6 +214,8 @@ def calc_path_homotopy(motion_tensor, agents_scene, threshold_distance = 1):
                     indices = np.where(distances == min_distance)
                     idx1, idx2 = indices[0][-1], indices[1][-1] # if there are multiple indices, take the last one (in case of stationary vehicles)
                     homotopy_class = 0 if idx1 == idx2 else (1 if idx1 < idx2 else 2) # 0 == undetermined, 1==agent1 first, 2==agent2 first
+                    # homotopy_class = 0 if min_distance > path_crossing_threshold else ( 0 if idx1 == idx2 else (1 if idx1 < idx2 else 2)) # 0 == undetermined/not crossing, 1==agent1 first, 2==agent2 first
+
                     # if homotopy_class == 0:
                     #     print()
                         # new problem: stationary (end of time trajectories)
@@ -254,7 +256,10 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
         df_agent = df_scene[df_scene.agent_id == agent]
         idx0 = list(pred_frames).index(df_agent.frame.values[0])
         idx1 = list(pred_frames).index(df_agent.frame.values[-1])
-        motion_tensor[idx0:idx1+1, i,:] = torch.tensor(df_agent[['x', 'y']].values)
+        try:
+            motion_tensor[idx0:idx1+1, i,:] = torch.tensor(df_agent[['x', 'y']].values)
+        except:
+            print('Missing frame for agent detected')
 
 
     motion_tensor = motion_tensor.permute(1,0,2).unsqueeze(0)
@@ -267,6 +272,8 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
 
     # need interpolation here! FIX PROPER INTERPOLATION!!!!! This should resolve proper on_path bools!!! #TODO use np
     pred_frames_interp = np.arange(pred_frames[0], pred_frames[-1]+1/interp_factor, 1/interp_factor)
+    
+    df_modes = pd.DataFrame(columns = ['agent1', 'agent2', 'total_num_agents'])
 
     for i in range(num_agents):
         for j in range(num_agents):
@@ -308,9 +315,14 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
                 
                 path_intersection_bool[:, i,j] = interaction
                 inframes_bool[:, i,j] = inframes
+
+                pathcrossing_interaction = len(interaction[inframes]) > 2 and interaction[inframes].argmax() > 0
+                if pathcrossing_interaction:
+                    df_modes.loc[len(df_modes.index)] = [agent1_id, agent2_id, num_agents]
+
                 
 
 
     # return motion tensor shape with pred_frames. check for each overlapping frame, if it is a common waypoint@
-    return path_intersection_bool, inframes_bool
+    return path_intersection_bool, inframes_bool, df_modes
 
