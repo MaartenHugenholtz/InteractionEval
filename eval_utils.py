@@ -273,7 +273,7 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
     # need interpolation here! FIX PROPER INTERPOLATION!!!!! This should resolve proper on_path bools!!! #TODO use np
     pred_frames_interp = np.arange(pred_frames[0], pred_frames[-1]+1/interp_factor, 1/interp_factor)
     
-    df_modes = pd.DataFrame(columns = ['agent1', 'agent2', 'total_num_agents'])
+    df_modes = pd.DataFrame(columns = ['agent1', 'agent2', 'total_num_agents', 'common_start_frame', 'common_end_frame'])
 
     for i in range(num_agents):
         for j in range(num_agents):
@@ -318,7 +318,9 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
 
                 pathcrossing_interaction = len(interaction[inframes]) > 2 and interaction[inframes].argmax() > 0
                 if pathcrossing_interaction:
-                    df_modes.loc[len(df_modes.index)] = [agent1_id, agent2_id, num_agents]
+                    common_start_frame = pred_frames[inframes].min()
+                    common_end_frame = pred_frames[inframes].max()
+                    df_modes.loc[len(df_modes.index)] = [agent1_id, agent2_id, num_agents, common_start_frame, common_end_frame]
 
                 
 

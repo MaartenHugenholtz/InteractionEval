@@ -1,6 +1,6 @@
 # data and results folders
 /datasets
-/pred_imgs_val
+# /pred_imgs_val
 /pred_imgs_train
 
 # Byte-compiled / optimized / DLL files

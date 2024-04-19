@@ -399,14 +399,37 @@ class GeometricMap(Map):
         angle_diff_pred, homotopy_pred = identify_pairwise_homotopy(prediciton_pair)
         angle_diff_rollout, homotopy_rollout = identify_pairwise_homotopy(rollout_pair)
 
-        gt_class = homotopy_gt[:,0,1]
-        pred_classes = homotopy_pred[:,0,1]
-        rollout_classes = homotopy_rollout[:,0,1]
+        homotopy_dict = {0: 'STATIC',
+                         1: 'CW',
+                         2: 'CCW',}
 
-
+        gt_class = [homotopy_dict[homotopy_gt[:,0,1].item()]]
+        pred_classes = [homotopy_dict[c.item()] for c in homotopy_pred[:,0,1]]
+        rollout_classes = [homotopy_dict[c.item()] for c in homotopy_rollout[:,0,1]]
 
         # check rollout collisions:
         rollout_collisions_bool = [rollout_collisions[i,...].max().item() for i in range(rollout_collisions.shape[0])]
+        rollout_feasible_bool = np.logical_not(rollout_collisions_bool)
+
+        # do some checks
+        assert not min(rollout_collisions_bool) # at least one class possible without collisions
+        if min(rollout_collisions_bool): # if both rollouts are feasible
+            assert (rollout_classes == 1).max() * (rollout_classes == 2).max() # both classes should be covered with rollouts 
+        
+        N_feasible_rollouts = sum(rollout_feasible_bool)
+        h_final = N_feasible_rollouts < 2
+
+        # calculate relevant mode dict:
+        mode_dict = {
+            'frame': data['frame'],
+            'gt_mode': gt_class[0],
+            'ml_mode': pred_classes[0],
+            'mode_correct': pred_classes[0] == gt_class[0], # ML == gt
+            'mode_covered': max([pred_class == gt_class[0] for pred_class in pred_classes]), # any pred == gt
+            'N_modes_covered': len(np.unique(pred_classes)),
+            'N_feasible_rollouts': N_feasible_rollouts,
+            'h_final': h_final,
+        }
         
         # transform points to map 
         motion_map = self.to_map_points(all_motion_pair)
@@ -513,4 +536,4 @@ class GeometricMap(Map):
         # # Show the Plotly figure
         # fig.show()
         # print()
-        return fig
+        return fig, mode_dict

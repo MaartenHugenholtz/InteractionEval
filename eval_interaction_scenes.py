@@ -36,7 +36,7 @@ log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 """ Get predictions and compute metrics """
 
-split = 'train'
+split = 'val'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
