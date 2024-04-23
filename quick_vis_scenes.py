@@ -88,6 +88,6 @@ for scene in scene_preprocessors:
                 recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
             recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
 
-            data['scene_map'].visualize_trajs(data, sample_motion_3D)
+            data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
 
 

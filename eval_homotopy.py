@@ -198,9 +198,9 @@ for scene in scene_preprocessors:
 
 
             if plot:
-                data['scene_map'].visualize_trajs(data, sample_motion_3D)
+                data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
                 # also plot roll outs here
-                data['scene_map'].visualize_trajs(data, fut_mod_rollout_combinations)
+                data['scene_vis_map'].visualize_trajs(data, fut_mod_rollout_combinations)
 
 
         df_modemetrics_scene = calc_scene_mode_metrics(homotopy_scene_tensor, agents_scene)

@@ -152,7 +152,7 @@ for idx, row in df_modemetrics.iterrows():
                 fut_mod_rollout_combinations = fut_mod_rollout_combinations[0:2] # first two entries already contain all possible combinations (only for 2 agent case!)
                 collision_matrix, min_distances, _, _ = calc_collision_matrix(fut_mod_rollout_combinations)
 
-                fig = data['scene_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations, collision_matrix, focus_agents)
+                fig = data['scene_vis_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations, collision_matrix, focus_agents)
 
                 # add title and save:
                 title = f"{row['scene']} frame {frame}, h_final_frame: {row['h_final_frame']}, t2cor: {row['t2cor']}s, t2cov: {row['t2cov']}s, r_t2cor: {row['r_t2cor']}%, r_t2cov: {row['r_t2cov']}%, pred_consistency: {row['pred_consistency']}, r_mode_collapse: {row['r_mode_collapse']}%"

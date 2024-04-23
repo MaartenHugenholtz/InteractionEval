@@ -378,7 +378,7 @@ def test_model(generator, save_dir, cfg):
 
             # implement plotting here
             # if data['seq'] == 'scene-0553':
-            # data['scene_map'].visualize_trajs(data, sample_motion_3D)
+            # data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
             # print()
 
             # store ids in list, together with matrices in list. Later figure out how to build one matrix from it

@@ -284,7 +284,7 @@ class GeometricMap(Map):
         agent_lengths = data['pre_data'][0][:,12] # idx = 12, and first timestep of predata
         agent_widths = data['pre_data'][0][:,10]   # idx = 10
 
-        img = 255 - np.transpose(self.data, (1, 2, 0))  # nicer colors
+        img = np.transpose(self.data, (1, 2, 0))  
 
         # Create a Plotly figure
         fig = go.Figure()
@@ -451,7 +451,7 @@ class GeometricMap(Map):
         agent_lengths = data['pre_data'][0][[agent1_idx,agent2_idx], :][:,12] # idx = 12, and first timestep of predata
         agent_widths = data['pre_data'][0][[agent1_idx,agent2_idx], :][:,10]   # idx = 10
 
-        img = 255 - np.transpose(self.data, (1, 2, 0))  # nicer colors
+        img = np.transpose(self.data, (1, 2, 0))  
 
         # Create a Plotly figure
         fig = go.Figure()

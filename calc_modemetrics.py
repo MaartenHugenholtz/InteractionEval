@@ -150,7 +150,7 @@ for idx, row in df_interactions.iterrows():
                 collision_matrix, min_distances, _, _ = calc_collision_matrix(fut_mod_rollout_combinations)
 
                 # visualize interaction pair and calculate modes
-                fig, scene_mode_dict = data['scene_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations, collision_matrix, focus_agents)
+                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations, collision_matrix, focus_agents)
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
 
