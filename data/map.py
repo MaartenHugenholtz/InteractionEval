@@ -387,15 +387,22 @@ class GeometricMap(Map):
         # pred_classes = [self.calc_pathhomotopy_pair(prediction[pred, 0,...], prediction[pred, 1,...]) for pred in range(prediction.shape[0])]
         # rollout_classes = [self.calc_pathhomotopy_pair(rollout[r, 0,...], rollout[r, 1,...]) for r in range(rollout.shape[0])]
 
-        # focus on pairs only
-        all_motion_pair = all_motion[[agent1_idx,agent2_idx]] # for plotting
-        fut_motion_pair = fut_motion[[agent1_idx,agent2_idx]] 
-        prediciton_pair = prediction[:,[agent1_idx,agent2_idx]]
-        rollout_pair = rollout # already only focus agent pair
+        # get minimum fut mask to make sure homotopy classes stay valid and fair timestep comparisons can be made
+        pre_motion_mask_valid_pair = torch.minimum(data['pre_motion_mask'][agent1_idx], data['pre_motion_mask'][agent2_idx]).bool()
+        fut_motion_mask_valid_pair = torch.minimum(data['fut_motion_mask'][agent1_idx], data['fut_motion_mask'][agent2_idx]).bool()
+        all_motion_mask_valid_pair = torch.cat([pre_motion_mask_valid_pair, fut_motion_mask_valid_pair])
+        Npred_frames = sum(fut_motion_mask_valid_pair).item()
+
+        # focus on pairs only; only use valid data masks
+        all_motion_pair = all_motion[[agent1_idx,agent2_idx]][:,all_motion_mask_valid_pair,:]  # for plotting
+        fut_motion_pair = fut_motion[[agent1_idx,agent2_idx]][:,fut_motion_mask_valid_pair,:] 
+        prediciton_pair = prediction[:,[agent1_idx,agent2_idx]][:,:,fut_motion_mask_valid_pair,:] 
+        rollout_pair = rollout[:,:,fut_motion_mask_valid_pair,:]  # already only focus agent pair, just index valid timesteps
+
 
         # calc homotopy classes with free-end angles
         fut_motion_pair_batch = torch.from_numpy(fut_motion_pair).unsqueeze(0)
-        angle_diff_gt, homotopy_gt = identify_pairwise_homotopy(fut_motion_pair_batch)
+        angle_diff_gt, homotopy_gt = identify_pairwise_homotopy(fut_motion_pair_batch)  
         angle_diff_pred, homotopy_pred = identify_pairwise_homotopy(prediciton_pair)
         angle_diff_rollout, homotopy_rollout = identify_pairwise_homotopy(rollout_pair)
 
@@ -432,6 +439,7 @@ class GeometricMap(Map):
             'N_modes_covered': len(np.unique(pred_classes)),
             'N_feasible_rollouts': N_feasible_rollouts,
             'h_final': h_final,
+            'Npred_frames': Npred_frames, 
         }
         
         # transform points to map 
@@ -446,8 +454,6 @@ class GeometricMap(Map):
 
         # index of current timestamp:
         idx_cur = pre_motion.shape[1] - 1
-
-
 
         agent_ids = [data['valid_id'][agent1_idx], data['valid_id'][agent2_idx]]
         agent_headings = [data['heading'][agent1_idx], data['heading'][agent2_idx]]
@@ -531,7 +537,7 @@ class GeometricMap(Map):
         fig.update_layout(
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
-            title=dict(text = data['seq'] + ', frame-' + str(data['frame'])),
+            title=dict(text = data['seq'] + ', frame-' + str(data['frame']) + '-' + str(Npred_frames + data['frame'])),
         )
         fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin])
         fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin]) # reveresed because image

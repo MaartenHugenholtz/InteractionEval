@@ -71,7 +71,7 @@ plot_all = False
 save_imgs = True
 
 focus_scene_bool = False
-scene_focus_name = 'scene-1062'
+scene_focus_name = 'scene-0103'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
@@ -189,7 +189,9 @@ for idx, row in df_interactions.iterrows():
 
                         # save figure and metrics:
                         fig = figs_scene[-2]
-                        title = f"{row['scene']} frame {frame-1}, t2cor: {t2cor}s, t2cov: {t2cov}s, pred_time: {pred_time}s, pred_consistency: {prediction_consistentcy}, r_mode_collapse: {r_mode_collapse}%"
+                        vis_start_frame = df_modes_pair_filt.iloc[-1].frame
+                        vis_end_frame = vis_start_frame + df_modes_pair_filt.iloc[-1].Npred_frames
+                        title = f"{row['scene']} frame {vis_start_frame}-{vis_end_frame}, t2cor: {t2cor}s, t2cov: {t2cov}s, pred_time: {pred_time}s, pred_consistency: {prediction_consistentcy}, r_mode_collapse: {r_mode_collapse}%"
                         fig.update_layout(
                                 title=dict(text = title),
                             )
@@ -204,7 +206,8 @@ for idx, row in df_interactions.iterrows():
     except Exception as e:
         print(e)
 # save df
-df_interactions.to_csv(f'interaction_mode_metrics_{split}.csv', index = False)
+if not focus_scene_bool:
+    df_interactions.to_csv(f'interaction_mode_metrics_{split}.csv', index = False)
 
 end_time = time.time()
 execution_time = end_time - start_time
