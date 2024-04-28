@@ -67,9 +67,11 @@ df_interactions = pd.read_csv('interaction_metrics_val.csv')
 split = 'val'
 save_pred_imgs_path = f'pred_imgs_{split}'
 plot = False
+plot_all = False
 save_imgs = True
 
-# scene_focus_name = 'scene-0093'
+focus_scene_bool = False
+scene_focus_name = 'scene-1062'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
@@ -88,8 +90,7 @@ for idx, row in df_interactions.iterrows():
         
         focus_agents = (row['agent1'], row['agent2'])
 
-        # if scene_name == scene_focus_name:
-        if True:
+        if not focus_scene_bool or scene_name == scene_focus_name: # settings above to just plot one scene for debugging
 
             gt = scene.gt
             pred_frames = scene.pred_frames
@@ -143,16 +144,26 @@ for idx, row in df_interactions.iterrows():
                 
                 fut_mod_decel = torch.from_numpy(np.stack(fut_mod_decel_list)).unsqueeze(0)
                 fut_mod_accel = torch.from_numpy(np.stack(fut_mod_accel_list)).unsqueeze(0)
+                
+                # length and widths for collision calculation
+                widths = [df_scene[df_scene['agent_id'] == str(agent_id)].width.values[0] for agent_id in focus_agents]
+                lengths = [df_scene[df_scene['agent_id'] == str(agent_id)].length.values[0] for agent_id in focus_agents]
 
                 # get roll-out combinations and check for collisions
                 fut_mod_rollout_combinations = get_rollout_combinations(fut_mod_decel, fut_mod_accel)
                 fut_mod_rollout_combinations = fut_mod_rollout_combinations[0:2] # first two entries already contain all possible combinations (only for 2 agent case!)
-                collision_matrix, min_distances, _, _ = calc_collision_matrix(fut_mod_rollout_combinations)
+                fut_mod_rollout_combinations_motion = fut_mod_rollout_combinations[...,0:2]
+                fut_mod_rollout_combinations_heading = fut_mod_rollout_combinations[...,2].unsqueeze(-1)
+                collision_margins, collision_bool = calc_collision_matrix_agentpair(fut_mod_rollout_combinations_motion, fut_mod_rollout_combinations_heading, lengths, widths)
 
                 # visualize interaction pair and calculate modes
-                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations, collision_matrix, focus_agents)
+                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents)
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
+
+
+                if plot_all:
+                    fig.show()
 
                 if scene_mode_dict['h_final']:
                     df_modes_pair = pd.DataFrame(modes_scene)

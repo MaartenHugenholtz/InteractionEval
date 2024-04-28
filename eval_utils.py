@@ -37,13 +37,118 @@ def get_rollout_combinations(fut_mod_decel, fut_mod_accel):
 
     return fut_mod_rollout_combinations
 
-def calc_collision_matrix2(motion_tensor):
+
+def calc_headings(motion_tensor):
+    """
+    Function does not work for rollouts --> cannot determine headings for completely stationary vehicles
+    Can still be used for predictions
+    """
+    # Calculate differences between consecutive points
+    dx = torch.diff(motion_tensor[..., 0], dim=-1)  # Differences in x coordinates
+    dy = torch.diff(motion_tensor[..., 1], dim=-1)  # Differences in y coordinates
+    
+    # Calculate headings using arctan2
+    headings = torch.atan2(dy, dx)
+    headings_corrected = headings.clone()
+    assert len(headings.shape) == 3, 'Wrong input dimension in calc_headings'
+    stationary_bool = (dx == 0) & (dy == 0)
+
+
+    for i in range(headings.shape[0]):
+        for j in range(headings.shape[1]):
+            heading_agent = headings[i,j]
+            stationary_bool_agent = stationary_bool[i,j]
+            if stationary_bool_agent.any():
+                idx_before_stationary = (1*stationary_bool_agent).argmax() - 1
+                # assert idx_before_stationary >= 0, 'Stationary form beginning, invalid heading calculation'
+                if idx_before_stationary:
+                    print()
+                heading_before_stationary = heading_agent[idx_before_stationary]
+                headings_corrected[i,j,stationary_bool_agent] = heading_before_stationary
+
+    # Append the last heading to match the length of trajectory
+    last_headings = headings_corrected[..., -1].unsqueeze(-1)
+    headings = torch.cat([headings_corrected, last_headings], dim=-1).unsqueeze(-1)
+    
+    return headings
+
+def calc_collision_matrix_agentpair(motion_tensor, heading_tensor, lengths, widths, 
+                                    extra_collision_threshold = 0.3, debug = False):
     """" 
     advanced collision calculation:
-    1. calculate x and y position differences
-    2. calculate headings
-    3. using heading and vehicle sizes 
+    1. fit circles to bumpers and calcaulate bumper positions
+    2. calculate new xy positions for all radii and reshape, e.g. if 2 agents, 3 circles --> 9 agents
+    3. calculate distance matrices and check for collisions: dmin > r1 + r2
     """
+    num_simulations = motion_tensor.size(0) # should be one. Make 2*3
+    num_agents = motion_tensor.size(1) # should be 2
+    num_timesteps = motion_tensor.size(2)
+    assert num_agents == 2, 'TOO MUCH AGENTS'
+
+    # heading_tensor = calc_headings(motion_tensor) # cannot calculate for stationary vehicles, take as input instead
+
+    disk_radii = []
+    motion_tensor_bumpers = []
+
+    partition_mode = 'inner'
+
+    for i in range(num_agents): 
+        l = lengths[i]
+        w = widths[i]
+
+        if partition_mode == 'outer': # use disks covering the whole bumper + outer parts
+            r = 0.5 * np.sqrt(2*w**2)
+            center_offset = 0.5*l - 0.5*w
+            if 3*w < l: 
+                print(f'l/w ratio, off: {l/w}. should be < 3. circle_gap: {center_offset - 2*r} (should be <0)') # assume 3 circles
+        elif partition_mode == 'inner': # use disks covering only the bumper parts inside the car area
+            r = 0.5*w
+            center_offset = 0.5*l - 0.5*w
+        else:
+            raise NameError
+        
+        disk_radii.append(r)
+
+        motion_i = motion_tensor[:,i,:,:].unsqueeze(0)
+        heading_i = heading_tensor[:,i,:,:]
+        headings_expanded = heading_i.unsqueeze(0)  # Shape: 1x2x12x1
+
+        bumpers = torch.tensor([-center_offset, 0, center_offset])
+        bumpers_broadcasted = bumpers.view(-1, 1, 1, 1)  # Shape: 3x1x1x1
+
+        delta_x_bumpers = torch.cos(headings_expanded) * bumpers_broadcasted # shape: 3x2x12x1
+        delta_y_bumpers = torch.sin(headings_expanded) * bumpers_broadcasted # shape: 3x2x12x1
+        delta_pos_bumpers = torch.cat([delta_x_bumpers, delta_y_bumpers], dim =-1) # shape: 3x2x12x2
+        pos_bumpers = motion_i + delta_pos_bumpers
+        motion_tensor_bumpers.append(pos_bumpers)
+
+    collision_threshold = sum(disk_radii) 
+
+    if debug:
+        for i in range(2):
+            df = pd.DataFrame({
+                'x': np.concatenate([motion_tensor_bumpers[0][:, i,:,0].flatten().numpy(), motion_tensor_bumpers[1][:, i,:,0].flatten().numpy()]),
+                'y': np.concatenate([motion_tensor_bumpers[0][:, i,:,1].flatten().numpy(), motion_tensor_bumpers[1][:, i,:,1].flatten().numpy()]),
+                'id': len(motion_tensor_bumpers[0][:, 0,:,0].flatten().numpy())*['1'] + len(motion_tensor_bumpers[1][:, 0,:,0].flatten().numpy())*['2']
+            })
+            px.scatter(df, x='x', y = 'y', color = 'id').show()
+
+
+    motion_tensor1 = motion_tensor_bumpers[0].unsqueeze(0)  # shape: 3x2x12x2  (bumpers x sims x time x 2) ---> 1x3x2x12x2
+    motion_tensor2 = motion_tensor_bumpers[1].unsqueeze(0)
+    positions_diff = motion_tensor1 - motion_tensor2.permute(1, 0, 2, 3, 4)
+    squared_distances = torch.sum(positions_diff ** 2, dim=-1)  # Shape: 3 x 3 x 2 x 12
+    distances = torch.sqrt(squared_distances)
+    assert distances.shape == (3,3, num_simulations, num_timesteps), 'WRONG SHAPES'
+    min_distances = torch.amin(distances, dim=(0,1, -1))  # take minimum of bumper dimensions and time dimension
+    
+    collision_margins = min_distances - collision_threshold
+    collision_bool = collision_margins < extra_collision_threshold
+    return collision_margins, collision_bool
+    
+
+
+    
 
 def calc_collision_matrix(motion_tensor):
     """Calculates boolean matrices to show which pairs are in collision for the given rollouts"""

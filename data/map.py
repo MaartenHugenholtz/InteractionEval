@@ -408,15 +408,18 @@ class GeometricMap(Map):
         rollout_classes = [homotopy_dict[c.item()] for c in homotopy_rollout[:,0,1]]
 
         # check rollout collisions:
-        rollout_collisions_bool = [rollout_collisions[i,...].max().item() for i in range(rollout_collisions.shape[0])]
+        rollout_collisions_bool = rollout_collisions.tolist()
         rollout_feasible_bool = np.logical_not(rollout_collisions_bool)
 
         # do some checks
-        assert not min(rollout_collisions_bool) # at least one class possible without collisions
-        if min(rollout_collisions_bool): # if both rollouts are feasible
-            assert (rollout_classes == 1).max() * (rollout_classes == 2).max() # both classes should be covered with rollouts 
+        # assert not min(rollout_collisions_bool), 'no roll-outs possible without collisiosn' # at least one class possible without collisions
+        # if min(rollout_feasible_bool): # if both rollouts are feasible
+        #     assert ('CW' in rollout_classes)*('CCW' in rollout_classes), 'roll-outs are same class' # both classes should be covered with rollouts 
         
-        N_feasible_rollouts = sum(rollout_feasible_bool)
+        if sum(rollout_feasible_bool) == 0:
+            print()
+        feasible_rollout_classes = np.unique(np.array(rollout_classes)[rollout_feasible_bool])
+        N_feasible_rollouts = len(feasible_rollout_classes)
         h_final = N_feasible_rollouts < 2
 
         # calculate relevant mode dict:

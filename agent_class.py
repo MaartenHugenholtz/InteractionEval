@@ -30,8 +30,8 @@ class Agent():
         self.frame_end = df_agent.frame.max()
         self.dt = dt
         self.id = df_agent['agent_id'].values[0]
-        assert (len(df_agent['agent_id'].unique()) == 1)
-        assert (np.diff(df_agent['t'])[0] == dt)
+        assert len(df_agent['agent_id'].unique()) == 1, 'More than 1 agent'
+        assert np.diff(df_agent['t'])[0] == dt, 'Timesteps missing in data'
         
 
         self.fut_steps = fut_steps
@@ -50,6 +50,7 @@ class Agent():
         self.gt_x = df_agent['x'].values[idx_denoise]
         self.gt_y = df_agent['y'].values[idx_denoise]
         self.gt_k = df_agent['k'].values[idx_denoise]
+        self.gt_heading = df_agent['heading'].values[idx_denoise]
         self.gt_s = np.zeros_like(self.gt_x)
         self.ds = np.sqrt(np.diff(self.gt_x)**2 + np.diff(self.gt_y)**2)
         self.gt_s[1:] = np.cumsum(self.ds)
@@ -61,7 +62,8 @@ class Agent():
         # distance dependent interpolation functions
         self.f_x_s = interpolate.interp1d(self.gt_s, self.gt_x, fill_value='extrapolate', assume_sorted=False) # NO UTURNS
         self.f_y_s  = interpolate.interp1d(self.gt_s, self.gt_y, fill_value='extrapolate', assume_sorted=False) # NO UTURNS
-        self.f_k_s  = interpolate.interp1d(self.gt_s, self.gt_k, fill_value='extrapolate', assume_sorted=True) # NO UTURNS            
+        self.f_k_s  = interpolate.interp1d(self.gt_s, self.gt_k, fill_value='extrapolate', assume_sorted=True) # NO UTURNS  
+        self.f_heading_s  = interpolate.interp1d(self.gt_s, self.gt_heading, fill_value=(self.gt_heading[0], self.gt_heading[-1]), assume_sorted=True, bounds_error= False) # DO NOT EXTRAPOLATE HEADING
         
     def rollout_future(self, frame_curr, direction = 'accel'):
         df_agent_fut = self.df_agent.copy().reset_index() # reinitlaize new copy of gt
@@ -78,7 +80,8 @@ class Agent():
                 x_new = self.f_x_s(s_new).item()
                 y_new = self.f_y_s(s_new).item()
                 k_new = self.f_k_s(s_new).item()
-                df_agent_fut.loc[idx + 1, ['s', 'x', 'y', 'k']] = s_new, x_new, y_new, k_new
+                heading_new = self.f_heading_s(s_new).item()
+                df_agent_fut.loc[idx + 1, ['s', 'x', 'y', 'k', 'heading']] = s_new, x_new, y_new, k_new, heading_new
 
                 # calculate acceleration and velocity for new frame
                 if direction == 'decel':
@@ -97,27 +100,28 @@ class Agent():
                 else:
                     raise NameError('direction mode does not exist')
                 
-                assert (not np.isnan(ax))
-                assert (not np.isnan(v_curr))
+                assert not np.isnan(ax), 'ax nan'
+                assert not np.isnan(v_curr), 'vcurr nan'
 
                 v_new = v_curr + ax*self.dt
                 df_agent_fut.loc[idx + 1, 'v'] = v_new
 
         pred_idx = (df_agent_fut['frame'] > frame_curr) * (df_agent_fut['frame'] <= frame_curr + self.fut_steps) 
-        fut_rollout = df_agent_fut[pred_idx][['x', 'y']].values
+        fut_rollout = df_agent_fut[pred_idx][['x', 'y', 'heading']].values
 
         # assert(not (frame_curr == 16 and self.id =='2'))
 
         if fut_rollout.shape[0] < self.fut_steps:
-            fut_rollout_repeat = np.empty((self.fut_steps, 2))
+            fut_rollout_repeat = np.zeros((self.fut_steps, 3))
             fut_rollout_repeat[:,0] = fut_rollout[-1,0]
             fut_rollout_repeat[:,1] = fut_rollout[-1,1]
+            fut_rollout_repeat[:,2] = fut_rollout[-1,2]
             fut_rollout_repeat[0:fut_rollout.shape[0],:] = fut_rollout
             fut_rollout = fut_rollout_repeat
 
-        assert (not np.isnan(fut_rollout).any())
+        assert not np.isnan(fut_rollout).any(), 'rollout nan'
 
-        return fut_rollout
+        return fut_rollout #includes heading now
 
     @staticmethod
     def calc_path_distance(group, v_var = 'v', dt = 0.5):
