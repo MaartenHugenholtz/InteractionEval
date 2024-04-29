@@ -427,6 +427,7 @@ class GeometricMap(Map):
             print()
         feasible_rollout_classes = np.unique(np.array(rollout_classes)[rollout_feasible_bool])
         N_feasible_rollouts = len(feasible_rollout_classes)
+        N_modes_covered = len(np.unique(pred_classes))
         h_final = N_feasible_rollouts < 2
 
         # calculate relevant mode dict:
@@ -434,9 +435,12 @@ class GeometricMap(Map):
             'frame': data['frame'],
             'gt_mode': gt_class[0],
             'ml_mode': pred_classes[0],
+            'K_modes': np.unique(pred_classes),
+            'sim_modes': list(feasible_rollout_classes),
             'mode_correct': pred_classes[0] == gt_class[0], # ML == gt
             'mode_covered': max([pred_class == gt_class[0] for pred_class in pred_classes]), # any pred == gt
-            'N_modes_covered': len(np.unique(pred_classes)),
+            'mode_collapse': N_modes_covered < N_feasible_rollouts,
+            'N_modes_covered': N_modes_covered,
             'N_feasible_rollouts': N_feasible_rollouts,
             'h_final': h_final,
             'Npred_frames': Npred_frames, 

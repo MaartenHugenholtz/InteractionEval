@@ -401,27 +401,28 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
                 squared_distances = torch.sum(positions_diff ** 2, dim=-1)  # Shape: (num_simulations, num_agents, num_agents, timesteps)
                 distances = torch.sqrt(squared_distances).numpy()  # Shape: (num_simulations, num_agents, num_agents, timesteps)
                 distances = np.nan_to_num(distances, nan = 9999)
+                
+                inframes = distances.diagonal()[::interp_factor] < 9999
                 agent1_onpath = (distances.min(axis=1) < onpath_threshold)[::interp_factor]
+                # agent1_onpath_idx = np.argmin(distances[::interp_factor,::interp_factor], axis=1)
+                # agent1_inframes_bool = np.array([abs(i-agent1_onpath_idx[i]) for i in range(len(agent1_onpath_idx))]) <= 12
+
                 agent2_onpath = (distances.min(axis=0) < onpath_threshold)[::interp_factor]
+                # agent2_onpath_idx = np.argmin(distances[::interp_factor,::interp_factor], axis=0)
+                # agent2_inframes_bool = np.array([abs(i-agent2_onpath_idx[i]) for i in range(len(agent2_onpath_idx))]) <= 12
                 # path_intersection_bool[:,i, j] = agent1_onpath[::interp_factor] # agent i on shared path (i,j)
                 # path_intersection_bool[:,j, i] = agent2_onpath[::interp_factor] # agent j on shared path (i,j)
-                onpath_frames = np.maximum(agent1_onpath, agent2_onpath)
+                # onpath_frames = np.maximum(agent1_inframes_bool*agent1_onpath, agent2_inframes_bool*agent2_onpath)[inframes]
+                onpath_frames = np.maximum(agent1_onpath, agent2_onpath)[inframes]
                 real_time_closest_distance = distances.diagonal().min()
+                start_path_sharing_frame_difference = abs(agent2_onpath.argmax() - agent1_onpath.argmax())
                 
                 # take maximum, to get timestep path sharing boolean. Problem maximum: very big time horizon differences.. Solution: Real time difference bool.
                 # assert(not (agent1_id=='10')*(agent2_id=='5'))
-                inframes = distances.diagonal()[::10] < 9999
-                interaction = (distances.diagonal().min()<interaction_threshold)*onpath_frames
-                if len(interaction[inframes]) > 2 and interaction[inframes].argmax() > 0:
-                    interaction_bool = True
-                    print(f'Interaction detect for agents {agent1_id} and {agent2_id}')
-                else:
-                    interaction_bool = False
-                
-                path_intersection_bool[:, i,j] = interaction
-                inframes_bool[:, i,j] = inframes
+                interaction = (real_time_closest_distance<=interaction_threshold)*(start_path_sharing_frame_difference<=12)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
 
-                pathcrossing_interaction = len(interaction[inframes]) > 2 and interaction[inframes].argmax() > 0
+
+                pathcrossing_interaction = len(interaction) > 2 and interaction.argmax() > 0
                 if pathcrossing_interaction:
                     common_start_frame = pred_frames[inframes].min()
                     common_end_frame = pred_frames[inframes].max()

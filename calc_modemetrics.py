@@ -171,7 +171,7 @@ for idx, row in df_interactions.iterrows():
                     df_modes_pair_filt = df_modes_pair[df_modes_pair.gt_mode == df_modes_pair.gt_mode.values[-1]] # cut data with other modes
                     df_modes_pair_filt = df_modes_pair_filt[~df_modes_pair_filt['h_final']] # only look at predictions before the homotoyp class is inevitable
                     df_modes_pair_filt = df_modes_pair_filt.tail(PRED_FRAMES) # limit to number of prediciton frames
-
+                    # df_modes_pair_filt[df_modes_pair_filt.keys()[[0,1,2,3,4,5,6,7,10]]]
                     # calc metrics:
                     if len(df_modes_pair_filt) > 0:
                         prediction_consistentcy = check_consistency(df_modes_pair_filt['ml_mode'])
