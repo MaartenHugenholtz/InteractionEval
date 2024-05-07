@@ -1,0 +1,13 @@
+frame;gt_mode;ml_mode;K_modes;sim_modes;mode_correct;mode_covered;mode_collapse;h_final
+5;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+6;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+7;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+8;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+9;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+10;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+11;CW;CCW;['CCW' 'CW'];['CCW', 'CW'];False;True;False;False
+12;CW;CCW;['CCW' 'CW'];['CCW', 'CW'];False;True;False;False
+13;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+14;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+15;CW;CW;['CW'];['CCW', 'CW'];True;True;True;False
+16;CW;CW;['CW'];['CW'];True;True;False;True

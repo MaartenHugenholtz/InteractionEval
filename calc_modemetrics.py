@@ -70,7 +70,7 @@ plot = False
 plot_all = False
 save_imgs = True
 
-focus_scene_bool = False
+focus_scene_bool = True
 scene_focus_name = 'scene-0103'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
@@ -157,9 +157,18 @@ for idx, row in df_interactions.iterrows():
                 collision_margins, collision_bool = calc_collision_matrix_agentpair(fut_mod_rollout_combinations_motion, fut_mod_rollout_combinations_heading, lengths, widths)
 
                 # visualize interaction pair and calculate modes
-                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents)
+                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair_splitplot(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents)
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
+
+                if frame == 11:
+                    fig.update_layout(
+                        margin=dict(
+                            l=0,  # left margin
+                            r=0,  # right margin
+                        )
+                    )
+                    pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 
                 if plot_all:

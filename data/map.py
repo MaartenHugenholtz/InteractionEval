@@ -12,6 +12,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from utils.homotopy import *
+from plotly.subplots import make_subplots
 
 class Map(object):
     def __init__(self, data, homography, description=None):
@@ -539,12 +540,229 @@ class GeometricMap(Map):
 
         # Update layout to remove axes
         fig.update_layout(
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
             title=dict(text = data['seq'] + ', frame-' + str(data['frame']) + '-' + str(Npred_frames + data['frame'])),
         )
-        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin])
-        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin]) # reveresed because image
+        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin], visible = False, scaleanchor="x", scaleratio=1) #
+
+        # # Show the Plotly figure
+        # fig.show()
+        # print()
+        return fig, mode_dict
+
+
+    def visualize_interactionpair_splitplot(self, data, prediction, rollout, rollout_collisions, agent_pair):
+        """
+        Plots GT trajectories (full)
+        And predictions for all agents (grouped per scene prediction)
+        """
+        agent1_id, agent2_id  = agent_pair
+        agent1_idx = data['valid_id'].index(agent1_id)
+        agent2_idx = data['valid_id'].index(agent2_id)
+
+        pre_motion = np.stack(data['pre_motion_3D']) * data['traj_scale']
+        fut_motion = np.stack(data['fut_motion_3D']) * data['traj_scale']
+        all_motion = np.concatenate((pre_motion, fut_motion), axis=1)
+
+        # index agent_pair
+        # all_motion = all_motion[[agent1_idx,agent2_idx]]
+        # prediction = prediction[:,[agent1_idx,agent2_idx]]
+        # rollout = rollout # rollout already indexed for [agent1_idx,agent2_idx]
+        # # calculate homotopy classes 
+        # gt_class = self.calc_pathhomotopy_pair(all_motion[0,...], all_motion[1,...])
+        # pred_classes = [self.calc_pathhomotopy_pair(prediction[pred, 0,...], prediction[pred, 1,...]) for pred in range(prediction.shape[0])]
+        # rollout_classes = [self.calc_pathhomotopy_pair(rollout[r, 0,...], rollout[r, 1,...]) for r in range(rollout.shape[0])]
+
+        # get minimum fut mask to make sure homotopy classes stay valid and fair timestep comparisons can be made
+        pre_motion_mask_valid_pair = torch.minimum(data['pre_motion_mask'][agent1_idx], data['pre_motion_mask'][agent2_idx]).bool()
+        fut_motion_mask_valid_pair = torch.minimum(data['fut_motion_mask'][agent1_idx], data['fut_motion_mask'][agent2_idx]).bool()
+        all_motion_mask_valid_pair = torch.cat([pre_motion_mask_valid_pair, fut_motion_mask_valid_pair])
+        Npred_frames = sum(fut_motion_mask_valid_pair).item()
+
+        # focus on pairs only; only use valid data masks
+        all_motion_pair = all_motion[[agent1_idx,agent2_idx]][:,all_motion_mask_valid_pair,:]  # for plotting
+        pre_motion_pair = pre_motion[[agent1_idx,agent2_idx]][:,pre_motion_mask_valid_pair,:]
+        fut_motion_pair = fut_motion[[agent1_idx,agent2_idx]][:,fut_motion_mask_valid_pair,:] 
+        prediciton_pair = prediction[:,[agent1_idx,agent2_idx]][:,:,fut_motion_mask_valid_pair,:] 
+        rollout_pair = rollout[:,:,fut_motion_mask_valid_pair,:]  # already only focus agent pair, just index valid timesteps
+
+
+        # calc homotopy classes with free-end angles
+        fut_motion_pair_batch = torch.from_numpy(fut_motion_pair).unsqueeze(0)
+        angle_diff_gt, homotopy_gt = identify_pairwise_homotopy(fut_motion_pair_batch)  
+        angle_diff_pred, homotopy_pred = identify_pairwise_homotopy(prediciton_pair)
+        angle_diff_rollout, homotopy_rollout = identify_pairwise_homotopy(rollout_pair)
+
+        homotopy_dict = {0: 'STATIC',
+                         1: 'CW',
+                         2: 'CCW',}
+
+        gt_class = [homotopy_dict[homotopy_gt[:,0,1].item()]]
+        pred_classes = [homotopy_dict[c.item()] for c in homotopy_pred[:,0,1]]
+        rollout_classes = [homotopy_dict[c.item()] for c in homotopy_rollout[:,0,1]]
+
+        # check rollout collisions:
+        rollout_collisions_bool = rollout_collisions.tolist()
+        rollout_feasible_bool = np.logical_not(rollout_collisions_bool)
+
+        # do some checks
+        # assert not min(rollout_collisions_bool), 'no roll-outs possible without collisiosn' # at least one class possible without collisions
+        # if min(rollout_feasible_bool): # if both rollouts are feasible
+        #     assert ('CW' in rollout_classes)*('CCW' in rollout_classes), 'roll-outs are same class' # both classes should be covered with rollouts 
+        
+        if sum(rollout_feasible_bool) == 0:
+            print()
+        feasible_rollout_classes = np.unique(np.array(rollout_classes)[rollout_feasible_bool])
+        N_feasible_rollouts = len(feasible_rollout_classes)
+        N_modes_covered = len(np.unique(pred_classes))
+        h_final = N_feasible_rollouts < 2
+
+        # calculate relevant mode dict:
+        mode_dict = {
+            'frame': data['frame'],
+            'gt_mode': gt_class[0],
+            'ml_mode': pred_classes[0],
+            'K_modes': np.unique(pred_classes),
+            'sim_modes': list(feasible_rollout_classes),
+            'mode_correct': pred_classes[0] == gt_class[0], # ML == gt
+            'mode_covered': max([pred_class == gt_class[0] for pred_class in pred_classes]), # any pred == gt
+            'mode_collapse': N_modes_covered < N_feasible_rollouts,
+            'N_modes_covered': N_modes_covered,
+            'N_feasible_rollouts': N_feasible_rollouts,
+            'h_final': h_final,
+            'Npred_frames': Npred_frames, 
+        }
+        
+        curr_motion_pair = pre_motion_pair[:,[-1],:]
+        curr_motion_pair_pred= np.tile(curr_motion_pair, (prediciton_pair.shape[0],1,1,1))# extra dimension for multimodal arrays
+        curr_motion_pair_roll= np.tile(curr_motion_pair, (rollout_pair.shape[0],1,1,1))# extra dimension for multimodal arrays
+
+        # transform points to map; curr + fut steps
+        motion_map = self.to_map_points(np.concatenate([curr_motion_pair, fut_motion_pair], axis = 1))
+        pred_map = self.to_map_points(np.concatenate([curr_motion_pair_pred, prediciton_pair], axis = 2))
+        rollout_map = self.to_map_points(np.concatenate([curr_motion_pair_roll, rollout_pair], axis = 2))
+
+        margin = 10
+        # x and y indices reveresd because of motion mapping (same for plotting indices)
+        all_x = np.concatenate([motion_map[...,1].flatten(),pred_map[...,1].flatten(), rollout_map[...,1].flatten()])
+        all_y = np.concatenate([motion_map[...,0].flatten(),pred_map[...,0].flatten(), rollout_map[...,0].flatten()])
+
+        # index of current timestamp:
+        idx_cur = 0 # ALL MOTIONS START WITH CURR STEP NOW
+
+        agent_ids = [data['valid_id'][agent1_idx], data['valid_id'][agent2_idx]]
+        agent_headings = [data['heading'][agent1_idx], data['heading'][agent2_idx]]
+        agent_lengths = data['pre_data'][0][[agent1_idx,agent2_idx], :][:,12] # idx = 12, and first timestep of predata
+        agent_widths = data['pre_data'][0][[agent1_idx,agent2_idx], :][:,10]   # idx = 10
+
+        img = np.transpose(self.data, (1, 2, 0))  
+
+        # Create a Plotly figure with 1 row and 3 columns
+        fig = make_subplots(rows=1, cols=4, shared_yaxes=True, 
+                            subplot_titles=("Ground truth", "Predictions", "Roll-out 1", "Roll-out 2"),
+                            horizontal_spacing = 0.0,
+                            vertical_spacing = 0.0)
+        
+        # Plot the image in all three subplots
+        fig.add_trace(go.Image(z=img), row=1, col=1)
+        fig.add_trace(go.Image(z=img), row=1, col=2)
+        fig.add_trace(go.Image(z=img), row=1, col=3)
+        fig.add_trace(go.Image(z=img), row=1, col=4)
+
+        # colors agents 
+        colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
+
+        # Plot the GT trajectories
+        for agent_idx, agent_id in enumerate(agent_ids):
+            # GT
+            fig.add_trace(go.Scatter(
+                x=motion_map[agent_idx,:,1],
+                y=motion_map[agent_idx,:,0],  # x and y reversed for image
+                mode='lines+markers',
+                name = f'agent_{int(agent_id)}',
+                # showlegend= (agent_idx==0),
+                legendgroup='gt',
+                legendgrouptitle_text=f'gt<br>h_class: {gt_class[0]}<br>',
+                line=dict(color=colors[agent_idx]),
+                showlegend=True,
+                ),
+                row=1, col=1,
+            )
+
+            # add vehicle shapes:
+            x_points, y_points = self.rotate_car(xc = motion_map[agent_idx,idx_cur,0], 
+                                            yc = motion_map[agent_idx,idx_cur,1], 
+                                            l = agent_lengths[agent_idx]*3, # size still needs to be scaled
+                                            w = agent_widths[agent_idx]*3, # size still needs to be scaled
+                                            heading = agent_headings[agent_idx])
+            
+            # add to all plots:
+            for col_num in range(1, 5):
+                fig.add_trace(
+                    go.Scatter(x=y_points, y=x_points, 
+                            fill="toself",
+                            mode = 'lines',
+                                # legendgroup='gt',
+                                # # name = f'gt_agent_{agent_id}',
+                                showlegend=False,
+                                line=dict(color=colors[agent_idx]),
+                                ),
+                    row=1, col=col_num,
+                )
+
+        # Plot the predictions
+        for agent_idx, agent_id in enumerate(agent_ids):
+            for pred in range(pred_map.shape[0]):
+                fig.add_trace(go.Scatter(
+                    x=pred_map[pred,agent_idx,:,1],
+                    y=pred_map[pred,agent_idx,:,0],  # x and y reversed for image
+                    mode='lines + markers',
+                    name = f'agent_{int(agent_id)}',
+                    # showlegend= (agent_idx==0),
+                    legendgroup=f'pred{pred+1}',
+                    legendgrouptitle_text=f'pred{pred+1}<br>h_class: {pred_classes[pred]}<br>',
+                    opacity= 1.0 if pred == 0 else 0.2, # ML prediction better visible
+                    line=dict(color=colors[agent_idx], dash='dash'),
+                    visible = True, # if pred == 0 else 'legendonly',
+                    showlegend=True,
+                    ),
+                    row=1, col=2,
+                )
+
+        # Plot the roll-outs
+        for agent_idx, agent_id in enumerate(agent_ids):
+            rollout_symbols = ['square', 'x']
+            r_markersize = 6
+            for r in range(rollout_map.shape[0]):
+                fig.add_trace(go.Scatter(
+                    x=rollout_map[r,agent_idx,:,1],
+                    y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
+                    mode='lines + markers',
+                    name = f'agent_{int(agent_id)}',
+                    marker_symbol= rollout_symbols[r],
+                    marker_size = r_markersize,
+                    # showlegend= (agent_idx==0),
+                    legendgroup=f'rollout{r+1}',
+                    legendgrouptitle_text=f'rollout{r+1}<br>h_class: {rollout_classes[r]}<br>collision: {rollout_collisions_bool[r]}',
+                    opacity=1,
+                    line=dict(color=colors[agent_idx], dash='dot'),
+                    showlegend=True,
+                    ),
+                    row=1, col=3 + r,
+                )
+
+        # Update layout to remove axes
+        fig.update_layout(
+            title=dict(text = data['seq'] + ', frame ' + str(data['frame']) + '-' + str(Npred_frames + data['frame'])),
+        )
+
+        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin], visible = False, scaleanchor="x", scaleratio=1) # reveresed because image
+
+        fig.update_layout(legend=dict(
+                orientation="h"))
+
+
 
         # # Show the Plotly figure
         # fig.show()
