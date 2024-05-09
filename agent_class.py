@@ -65,7 +65,7 @@ class Agent():
         self.f_k_s  = interpolate.interp1d(self.gt_s, self.gt_k, fill_value='extrapolate', assume_sorted=True) # NO UTURNS  
         self.f_heading_s  = interpolate.interp1d(self.gt_s, self.gt_heading, fill_value=(self.gt_heading[0], self.gt_heading[-1]), assume_sorted=True, bounds_error= False) # DO NOT EXTRAPOLATE HEADING
         
-    def rollout_future(self, frame_curr, direction = 'accel'):
+    def rollout_future(self, frame_curr, direction = 'accel', use_gt_path = True):
         df_agent_fut = self.df_agent.copy().reset_index() # reinitlaize new copy of gt
 
         for idx in range(len(df_agent_fut)):
@@ -74,13 +74,22 @@ class Agent():
                 # get updated row from df
 
                 # calculate travelled distance ds and new s/x/y/k 
-                v_curr, s_curr = row['v'], row['s']
+                v_curr, s_curr, heading_curr, x_curr, y_curr = row['v'], row['s'], row['heading'], row['x'], row['y']
                 ds = v_curr * self.dt
                 s_new = s_curr + ds
-                x_new = self.f_x_s(s_new).item()
-                y_new = self.f_y_s(s_new).item()
-                k_new = self.f_k_s(s_new).item()
-                heading_new = self.f_heading_s(s_new).item()
+
+                if use_gt_path:  # Future rollouts and Oracle model
+                    x_new = self.f_x_s(s_new).item()
+                    y_new = self.f_y_s(s_new).item()
+                    k_new = self.f_k_s(s_new).item()
+                    heading_new = self.f_heading_s(s_new).item()
+
+                else: # constant heading model
+                    x_new = x_curr + np.cos(heading_curr) * ds
+                    y_new = y_curr + np.sin(heading_curr) * ds
+                    k_new = 0 # constant heading, no corner
+                    heading_new = heading_curr
+
                 df_agent_fut.loc[idx + 1, ['s', 'x', 'y', 'k', 'heading']] = s_new, x_new, y_new, k_new, heading_new
 
                 # calculate acceleration and velocity for new frame
@@ -97,6 +106,8 @@ class Agent():
                     ax_max_limit = (vmax - v_curr) / self.dt
                     assert ax_max_limit >= 0, 'ax <0 for acceleration rollout'
                     ax = min(ax_max_limit, self.ax_max)
+                elif direction == 'constant':
+                    ax = 0 # constant velocity 
                 else:
                     raise NameError('direction mode does not exist')
                 

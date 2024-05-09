@@ -18,7 +18,7 @@ import plotly.io as pio
 from agent_class import Agent
 import time
 from tqdm import tqdm
-
+from oracle_model import get_model_prediction
 
 start_time = time.time()
 
@@ -35,25 +35,8 @@ torch.set_grad_enabled(False)
 log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 
-model_id = cfg.get('model_id', 'agentformer')
-model = model_dict[model_id](cfg)
-model.set_device(device)
-model.eval()
-cp_path = cfg.model_path % epoch
-print_log(f'loading model from checkpoint: {cp_path}', log, display=True)
-model_cp = torch.load(cp_path, map_location='cpu')
-model.load_state_dict(model_cp['model_dict'], strict=False)
 
 """"  #################  """
-
-
-def get_model_prediction(data, sample_k):
-    model.set_data(data)
-    recon_motion_3D, _ = model.inference(mode='recon', sample_num=sample_k)
-    sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
-    sample_motion_3D = sample_motion_3D.transpose(0, 1).contiguous()
-    return recon_motion_3D, sample_motion_3D
-
 
 
 
@@ -65,12 +48,12 @@ df_interactions = pd.read_csv('interaction_metrics_val.csv')
 
 
 split = 'val'
-save_pred_imgs_path = f'pred_imgs_{split}'
+save_pred_imgs_path = f'pred_imgs_oracle_{split}'
 plot = False
 plot_all = False
 save_imgs = True
 
-focus_scene_bool = True
+focus_scene_bool = False
 scene_focus_name = 'scene-0103'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
@@ -80,7 +63,7 @@ scene_names = [scene_preprocessors[s].seq_name for s in range(len(scene_preproce
 
 for idx, row in df_interactions.iterrows():
 
-    try:
+    # try:
         # get relevant interaction variables
         scene_name = row['scene']
         scene = scene_preprocessors[scene_names.index(scene_name)]
@@ -127,11 +110,12 @@ for idx, row in df_interactions.iterrows():
                 sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
                 sys.stdout.flush()
 
-                with torch.no_grad():
-                    recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
-                recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+                # Make oracle prediction
+                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k, agent_dict, use_gt_path = True)
 
-                data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
+                # data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
+
+
                 # calculate roll-outs for possible agent pairs:
 
                 fut_mod_decel_list = []
@@ -214,11 +198,11 @@ for idx, row in df_interactions.iterrows():
                         print('prediction length too short for mode evaluation')
                     break # break for loop 
 
-    except Exception as e:
-        print(e)
+    # except Exception as e:
+    #     print(e)
 # save df
 if not focus_scene_bool:
-    df_interactions.to_csv(f'interaction_mode_metrics_{split}.csv', index = False)
+    df_interactions.to_csv(f'interaction_mode_metrics_oracle_{split}.csv', index = False)
 
 end_time = time.time()
 execution_time = end_time - start_time

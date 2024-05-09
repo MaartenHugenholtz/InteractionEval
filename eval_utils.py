@@ -150,12 +150,8 @@ def calc_collision_matrix_agentpair(motion_tensor, heading_tensor, lengths, widt
 
     
 
-def calc_collision_matrix(motion_tensor):
+def calc_collision_matrix(motion_tensor, collision_distance = 3):
     """Calculates boolean matrices to show which pairs are in collision for the given rollouts"""
-
-    # Use constant collision distance index for now. #TODO: use car size parameters
-    # DO efficiently: based on sizes an heading vectors, vary what the real distance is + respected collision distance 
-    collision_distance = 3  # m
 
     # Extract necessary dimensions
     num_simulations = motion_tensor.size(0)
@@ -181,6 +177,11 @@ def calc_collision_matrix(motion_tensor):
     
     return collision_matrices, min_distances, min_indices, distances
 
+def calc_travelled_distance(motion_tensor):
+    distances_steps = torch.sqrt(torch.square(motion_tensor[..., 0].diff()) + torch.square(motion_tensor[..., 1].diff()))
+    distances_total = torch.sum(distances_steps, dim = -1)
+
+    return distances_total # total travelled distance for each sim by each agent, so shape = (sims, agents)
 
 
 # PREDICTION AND METRIC VARS:
