@@ -168,6 +168,7 @@ for idx, row in df_interactions.iterrows():
                             r=0,  # right margin
                         )
                     )
+                    fig.show()
                     pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 

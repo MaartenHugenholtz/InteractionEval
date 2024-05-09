@@ -120,6 +120,7 @@ for split in splits:
         frame_id = 0
         sample = first_sample
         cvt_data = []
+        n_columns_data = 20 if ADD_LANE_ID else 18
         while True:
             if sample['token'] in all_samples:
                 instances_in_frame = []
@@ -127,7 +128,7 @@ for split in splits:
                 if USE_EGO:
                     # first get ego pose:
                     ego_pose = nuscenes.get('ego_pose', sample['data']['LIDAR_TOP'])
-                    data = np.ones(20) * -1.0
+                    data = np.ones(n_columns_data) * -1.0
                     data[0] = frame_id
                     data[1] = 99.0 # unique id for ego vehicle    
                     # ego vehicle dimensions from:  https://forum.nuscenes.org/t/dimensions-of-the-ego-vehicle-used-to-gather-data/550

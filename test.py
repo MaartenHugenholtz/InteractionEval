@@ -91,8 +91,8 @@ def test_model(generator, save_dir, cfg):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', default=None)
-    parser.add_argument('--data_eval', default='test')
+    parser.add_argument('--cfg', default='nuscenes_5sample_agentformer' )
+    parser.add_argument('--data_eval', default='val')
     parser.add_argument('--epochs', default=None)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--cached', action='store_true', default=False)
@@ -143,5 +143,4 @@ if __name__ == '__main__':
             # remove eval folder to save disk space
             if args.cleanup:
                 shutil.rmtree(save_dir)
-
 

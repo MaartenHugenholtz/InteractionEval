@@ -92,7 +92,7 @@ class preprocess(object):
     def get_pred_mask(self, cur_data, valid_id):
         pred_mask = np.zeros(len(valid_id), dtype=np.int)
         for i, idx in enumerate(valid_id):
-            pred_mask[i] = cur_data[cur_data[:, 1] == idx].squeeze()[-1]
+            pred_mask[i] = cur_data[cur_data[:, 1] == idx].squeeze()[17]
         return pred_mask
 
     def get_heading(self, cur_data, valid_id):
