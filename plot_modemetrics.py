@@ -3,53 +3,64 @@ import plotly.express as px
 import plotly.io as pio
 import numpy as np
 import pandas as pd
+from plotly.subplots import make_subplots
 
-
-split = 'val'
-df_interactions = pd.read_csv(f'interaction_mode_metrics_{split}.csv')
-df_interactions['method'] = 'AgentFormer'
-
-df_interactions_pre = pd.read_csv('interaction_mode_metrics_oracle_val.csv')
-df_interactions_pre['method'] = 'Oracle'
-
-df_interactions = pd.concat([df_interactions, df_interactions_pre])
-
-df_interactions = df_interactions.dropna()
-
-print(f'{len(df_interactions)} interactions in {split} dataset')
-
-# calculate metrics
-# df_interactions['metric t2cor'] = df_interactions.apply(lambda row: str(row['t2cor']) if row['t2cor'] < row['pred_time'] else 'correct', axis=1)
-# df_interactions['metric t2cov'] = df_interactions.apply(lambda row: str(row['t2cov']) if row['t2cov'] < row['pred_time'] else 'covered', axis=1)
 Hpred = 6
-df_interactions['metric t2cor'] = df_interactions.apply(lambda row: row['t2cor'] if row['t2cor'] < row['pred_time'] else Hpred, axis=1)
-df_interactions['metric t2cov'] = df_interactions.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred, axis=1)
 
-df_notcorrect = df_interactions[df_interactions['metric t2cor'] < Hpred]
-df_0scor = df_interactions[df_interactions['metric t2cor'] ==0]
-print(f"{round(100 * len(df_notcorrect) / len(df_interactions),1)}% of the intentions not correct, with {df_notcorrect['t2cor'].mean()}s as average time-to-correct-mode-prediction")
-print(f"{round(100*len(df_0scor)/len(df_interactions), 1)}% of the intentions not correctly predicted before inevitable homotopy collapse (t2cor = 0s)")
+models = ['AgentFormer',
+           'Oracle'
+           ]
+models_result_paths = ['interaction_mode_metrics_val.csv',
+                        'interaction_mode_metrics_oracle_val.csv'
+                        ]
 
-df_notcovered = df_interactions[df_interactions['metric t2cov'] < Hpred]
-df_0scov = df_interactions[df_interactions['metric t2cov'] ==0]
-print(f"{round(100 * len(df_notcovered) / len(df_interactions),1)}% of the intentions not covered, with {df_notcovered['t2cov'].mean()}s as average time-to-covered-mode-prediction")
-print(f"{round(100*len(df_0scov)/len(df_interactions), 1)}% of the intentions not covered predicted before inevitable homotopy collapse (t2cov = 0s)")
+# combine data into one df:
+dfs = []
+consistencies = []
+for model, path in zip(models, models_result_paths):
+    df_temp = pd.read_csv(path).dropna()
+    df_temp['model'] = model
+    df_temp['metric t2cor'] = df_temp.apply(lambda row: row['t2cor'] if row['t2cor'] < row['pred_time'] else Hpred, axis=1)
+    df_temp['metric t2cov'] = df_temp.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred, axis=1)
+    dfs.append(df_temp)
+
+    # print stats
+    df_notcorrect = df_temp[df_temp['metric t2cor'] < Hpred]
+    df_0scor = df_temp[df_temp['metric t2cor'] ==0]
+
+    print(f'MODEL: {model}')
+    print(f'{len(df_temp)} interactions in dataset')
+    print(f"{round(100 * len(df_notcorrect) / len(df_temp),1)}% of the intentions not correct, with {df_notcorrect['t2cor'].mean()}s as average time-to-correct-mode-prediction")
+    print(f"{round(100*len(df_0scor)/len(df_temp), 1)}% of the intentions not correctly predicted before inevitable homotopy collapse (t2cor = 0s)")
+    r_pred_consistency = len(df_temp[df_temp.prediction_consistency == True]) / len(df_temp)
+    consistencies.append(r_pred_consistency)
+    print(f'Prediction consistency = {round(100*r_pred_consistency,1)}%')
+    print(f"Average mode-collapse = {round(df_temp['r_mode_collapse'].mean(),1)}%")
+    print()
 
 
-# get prediciton consistency metric:
-r_pred_consistency = len(df_interactions[df_interactions.prediction_consistency == True]) / len(df_interactions)
-print(f'Prediction consistency = {round(100*r_pred_consistency,1)}%')
+df_combined = pd.concat(dfs)
 
-print(f"Average mode-collapse = {round(df_interactions['r_mode_collapse'].mean(),1)}%")
 
-# Plot histogram using Plotly Express
-fig = px.histogram(df_interactions, x='r_mode_collapse', color = 'method', barmode= 'group',nbins=11, title='mode collapse ratio')
+
+fig = px.histogram(df_combined, x='r_mode_collapse', color = 'model', barmode= 'group',nbins=11, title='mode collapse ratio')
 fig.show()
 
-# find better definition for relative metrics! 
-
-fig = px.histogram(df_interactions, x='metric t2cor',color = 'method', barmode= 'group',nbins=10, title='time to correct prediction [s]')
+fig = px.histogram(df_combined, x='metric t2cor',color = 'model', barmode= 'group',nbins=10, title='time to correct prediction [s]')
 fig.show()
 
-fig = px.histogram(df_interactions, x='metric t2cov',color = 'method', barmode= 'group',nbins=10, title='time to covered prediction [s]')
+fig = px.histogram(df_combined, x='metric t2cov',color = 'model', barmode= 'group',nbins=10, title='time to covered prediction [s]')
 fig.show()
+
+# # Create subplots
+# fig = make_subplots(rows=1, cols=4, subplot_titles=('Time to Correct Prediction [s]', 'Time to Covered Prediction [s]', 'Mode Collapse Ratio', 'Prediction Consistency'))
+
+# # Add histograms to subplots
+# for i, model in enumerate(models):
+#     fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['metric t2cor'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=1)
+#     fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['metric t2cov'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=2)
+#     fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['r_mode_collapse'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=3)
+#     # fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['metric t2cor'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=4)
+
+
+# fig.show()
