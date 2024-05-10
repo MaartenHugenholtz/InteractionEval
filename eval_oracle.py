@@ -63,7 +63,7 @@ scene_names = [scene_preprocessors[s].seq_name for s in range(len(scene_preproce
 
 for idx, row in df_interactions.iterrows():
 
-    # try:
+    try:
         # get relevant interaction variables
         scene_name = row['scene']
         scene = scene_preprocessors[scene_names.index(scene_name)]
@@ -92,6 +92,7 @@ for idx, row in df_interactions.iterrows():
                 agent_class = Agent(df_agent, v_max = vmax_scene) # impose vmax based on gt scene velocities
                 agent_dict.update({agent: agent_class})
 
+            path_intersection_bool, inframes_bool, df_modemetrics_scene = calc_path_intersections(df_scene, agents_scene, pred_frames)
 
             figs_scene = []
             modes_scene = []
@@ -110,8 +111,12 @@ for idx, row in df_interactions.iterrows():
                 sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
                 sys.stdout.flush()
 
+                # path_intersction for current agents in frame
+                idx_scene_agents = [agents_scene.index(str(int(agent_id))) for agent_id in data['valid_id']]
+                path_intersection_bool_frame = path_intersection_bool[idx_scene_agents,:][:,idx_scene_agents] # re-order according to data[valid_id]
+                
                 # Make oracle prediction
-                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k, agent_dict, use_gt_path = True)
+                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = True)
 
                 # data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
 
@@ -146,15 +151,15 @@ for idx, row in df_interactions.iterrows():
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
 
-                if frame == 11:
-                    fig.update_layout(
-                        margin=dict(
-                            l=0,  # left margin
-                            r=0,  # right margin
-                        )
-                    )
-                    fig.show()
-                    pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
+                # if frame == 11:
+                #     fig.update_layout(
+                #         margin=dict(
+                #             l=0,  # left margin
+                #             r=0,  # right margin
+                #         )
+                #     )
+                #     fig.show()
+                #     pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 
                 if plot_all:
@@ -198,8 +203,8 @@ for idx, row in df_interactions.iterrows():
                         print('prediction length too short for mode evaluation')
                     break # break for loop 
 
-    # except Exception as e:
-    #     print(e)
+    except Exception as e:
+        print(e)
 # save df
 if not focus_scene_bool:
     df_interactions.to_csv(f'interaction_mode_metrics_oracle_{split}.csv', index = False)

@@ -4,12 +4,13 @@ import itertools
 from eval_utils import calc_collision_matrix, calc_travelled_distance
 
 
-def get_model_prediction(data, sample_k, agent_dict, use_gt_path = True):
+def get_model_prediction(data, sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = True):
 
     frame_curr = data['frame']
     futures_constant_v = []
     futures_accel = []
     futures_decel = []
+    agents_gt = []
 
     for agent_id in data['valid_id']:
         agent = agent_dict[str(int(agent_id))]
@@ -19,7 +20,7 @@ def get_model_prediction(data, sample_k, agent_dict, use_gt_path = True):
         futures_constant_v.append(fut_agent_constant_v)
         futures_accel.append(fut_agent_accel)
         futures_decel.append(fut_agent_decel)
-
+        agents_gt.append(agent.get_gt_agent(frame_curr))
     
     constant_v = torch.from_numpy(np.stack(futures_constant_v)).unsqueeze(0)[...,0:2]
     accel = torch.from_numpy(np.stack(futures_accel)).unsqueeze(0)[...,0:2]
@@ -29,12 +30,13 @@ def get_model_prediction(data, sample_k, agent_dict, use_gt_path = True):
     # decel = torch.from_numpy(np.stack(futures_decel))[...,0:2]
 
     # make combinations
-    fut_rollout_combinations = get_rollout_combinations(constant_v, accel, decel)
+    fut_rollout_combinations = get_interacting_combinations(constant_v, accel, decel, path_intersection_bool_frame)
 
-    # check collisions (basic distance based one, efficient)
+    # # check collisions (basic distance based one, efficient)
     # collision_matrices, min_distances, _, _ = calc_collision_matrix(fut_rollout_combinations, collision_distance= 3)
     # collision_bool_sims = torch.amax(collision_matrices, dim = (1,2))
     # feasible_rollouts = fut_rollout_combinations[torch.logical_not(collision_bool_sims),...]
+    #TODO: with current plan there could be collisions still, and rejected sims...
 
     feasible_rollouts = fut_rollout_combinations # collision checker moved within rollout combiner for memory issues
     
@@ -81,4 +83,47 @@ def get_rollout_combinations(constant_v, accel, decel):
 
     fut_rollout_combinations = torch.stack(combinations)
 
+    return fut_rollout_combinations
+
+
+def get_interacting_combinations(constant_v, accel, decel, path_intersection_bool_frame):
+    combinations = []
+
+    roll_out_matrix = torch.cat([constant_v, accel, decel])
+    N_sims, N_agents, _, _ = roll_out_matrix.shape
+
+    # first do interacting rollouts / the rest constant velocity... 
+    sim_constant_v = roll_out_matrix[[0],...] 
+
+    # get interaction agents:
+    agent1_idx, agent2_idx = torch.where(torch.from_numpy(path_intersection_bool_frame))
+    N__interactions = len(agent1_idx)
+    indices_interacting_agents = np.unique(list(agent1_idx) + list(agent2_idx))
+    N_interacting_agents = len(indices_interacting_agents)
+
+    # only sim accel/decel for interacting pairs!!!
+    sim_combinations = itertools.product(range(1, N_sims), repeat=N_interacting_agents) 
+    indices = torch.tensor(list(sim_combinations),  dtype=torch.int) # just interacting agents
+
+    indices_all = torch.zeros((indices.shape[0], N_agents),  dtype=torch.int) # constant velocity as default
+    indices_all[:,indices_interacting_agents] = indices
+
+    for idx_comb in range(indices_all.shape[0]):
+        sim = torch.stack(
+            [roll_out_matrix[indices_all[idx_comb, idx_agent], idx_agent,...] for idx_agent in range(N_agents)])
+        
+        # # only check collision for interacting pairs (the rest could theoretically brake/accelerate without colliding)
+        # sim_interacting_agents = sim[list(indices_interacting_agents), ...]
+        # collision_matrices, min_distances, _, _ = calc_collision_matrix(sim_interacting_agents.unsqueeze(0), collision_distance= 3)
+        # collision_bool_sims = torch.amax(collision_matrices, dim = (1,2))
+        # if collision_bool_sims:
+        #     continue
+        # else:
+
+        # assume no collisiosn for now (evaluation stops anyway once a rollout is infeasible...what about constant vel>>?)    
+        combinations.append(sim)
+
+    fut_rollout_combinations = torch.stack(combinations)
+    # then check agian for collisions, and adjust rollouts accordingly ??
+    
     return fut_rollout_combinations

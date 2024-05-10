@@ -373,7 +373,7 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
     # motion_tensor_interpy = tensor_interpolate(motion_tensor[:,:,:,1], scale_factor = interp_factor, mode = 'linear', align_corners=True)
     # motion_tensor_interp = torch.stack((motion_tensor_interpx, motion_tensor_interpy)).permute(1,2,3,0)
 
-    path_intersection_bool = np.ones((num_frames, num_agents, num_agents)) * 9999
+    path_intersection_bool = np.zeros((num_agents, num_agents)) * False
     inframes_bool = np.zeros((num_frames, num_agents, num_agents)) # both agents in frame
 
     # need interpolation here! FIX PROPER INTERPOLATION!!!!! This should resolve proper on_path bools!!! #TODO use np
@@ -425,6 +425,7 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
 
                 pathcrossing_interaction = len(interaction) > 2 and interaction.argmax() > 0
                 if pathcrossing_interaction:
+                    path_intersection_bool[i,j] = True
                     common_start_frame = pred_frames[inframes].min()
                     common_end_frame = pred_frames[inframes].max()
                     df_modes.loc[len(df_modes.index)] = [agent1_id, agent2_id, num_agents, common_start_frame, common_end_frame]

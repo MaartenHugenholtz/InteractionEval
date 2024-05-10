@@ -7,6 +7,12 @@ import pandas as pd
 
 split = 'val'
 df_interactions = pd.read_csv(f'interaction_mode_metrics_{split}.csv')
+df_interactions['method'] = 'AgentFormer'
+
+df_interactions_pre = pd.read_csv('interaction_mode_metrics_oracle_val.csv')
+df_interactions_pre['method'] = 'Oracle'
+
+df_interactions = pd.concat([df_interactions, df_interactions_pre])
 
 df_interactions = df_interactions.dropna()
 
@@ -37,13 +43,13 @@ print(f'Prediction consistency = {round(100*r_pred_consistency,1)}%')
 print(f"Average mode-collapse = {round(df_interactions['r_mode_collapse'].mean(),1)}%")
 
 # Plot histogram using Plotly Express
-fig = px.histogram(df_interactions, x='r_mode_collapse', nbins=11, title='mode collapse ratio')
+fig = px.histogram(df_interactions, x='r_mode_collapse', color = 'method', barmode= 'group',nbins=11, title='mode collapse ratio')
 fig.show()
 
 # find better definition for relative metrics! 
 
-fig = px.histogram(df_interactions, x='metric t2cor', nbins=10, title='time to correct prediction [s]')
+fig = px.histogram(df_interactions, x='metric t2cor',color = 'method', barmode= 'group',nbins=10, title='time to correct prediction [s]')
 fig.show()
 
-fig = px.histogram(df_interactions, x='metric t2cov', nbins=10, title='time to covered prediction [s]')
+fig = px.histogram(df_interactions, x='metric t2cov',color = 'method', barmode= 'group',nbins=10, title='time to covered prediction [s]')
 fig.show()

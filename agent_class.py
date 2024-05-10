@@ -65,6 +65,24 @@ class Agent():
         self.f_k_s  = interpolate.interp1d(self.gt_s, self.gt_k, fill_value='extrapolate', assume_sorted=True) # NO UTURNS  
         self.f_heading_s  = interpolate.interp1d(self.gt_s, self.gt_heading, fill_value=(self.gt_heading[0], self.gt_heading[-1]), assume_sorted=True, bounds_error= False) # DO NOT EXTRAPOLATE HEADING
         
+    def get_gt_agent(self, frame_curr):
+        #TODO: might still need to make option for longer futsteps
+        df_agent_fut = self.df_agent.copy().reset_index() # reinitlaize new copy of gt
+        pred_idx = (df_agent_fut['frame'] > frame_curr) * (df_agent_fut['frame'] <= frame_curr + self.fut_steps) 
+        fut_rollout = df_agent_fut[pred_idx][['x', 'y']].values
+
+        if fut_rollout.shape[0] < self.fut_steps:
+            # fut_rollout_repeat = np.zeros((self.fut_steps, 3))
+            fut_rollout_repeat = np.zeros((self.fut_steps, 2))
+            fut_rollout_repeat[:,0] = fut_rollout[-1,0]
+            fut_rollout_repeat[:,1] = fut_rollout[-1,1]
+            # fut_rollout_repeat[:,2] = fut_rollout[-1,2]
+            fut_rollout_repeat[0:fut_rollout.shape[0],:] = fut_rollout
+            fut_rollout = fut_rollout_repeat
+        
+        gt_agent = fut_rollout
+        return gt_agent
+
     def rollout_future(self, frame_curr, direction = 'accel', use_gt_path = True):
         df_agent_fut = self.df_agent.copy().reset_index() # reinitlaize new copy of gt
 
