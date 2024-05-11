@@ -18,7 +18,23 @@ import plotly.io as pio
 from agent_class import Agent
 import time
 from tqdm import tqdm
-from oracle_model import get_model_prediction
+
+"""
+Choose model and setttings
+"""
+
+# model = 'oracle'
+# use_gt_path = True
+
+model = 'cv'
+use_gt_path = False
+
+if model == 'cv':
+    from cv_model import get_model_prediction
+else:
+    from oracle_model import get_model_prediction
+
+""""""
 
 start_time = time.time()
 
@@ -48,7 +64,7 @@ df_interactions = pd.read_csv('interaction_metrics_val.csv')
 
 
 split = 'val'
-save_pred_imgs_path = f'pred_imgs_oracle_{split}'
+save_pred_imgs_path = f'pred_imgs_{model}_{split}'
 plot = False
 plot_all = False
 save_imgs = True
@@ -116,7 +132,7 @@ for idx, row in df_interactions.iterrows():
                 path_intersection_bool_frame = path_intersection_bool[idx_scene_agents,:][:,idx_scene_agents] # re-order according to data[valid_id]
                 
                 # Make oracle prediction
-                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = True)
+                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = use_gt_path)
 
                 # data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
 
@@ -207,7 +223,7 @@ for idx, row in df_interactions.iterrows():
         print(e)
 # save df
 if not focus_scene_bool:
-    df_interactions.to_csv(f'interaction_mode_metrics_oracle_{split}.csv', index = False)
+    df_interactions.to_csv(f'interaction_mode_metrics_{model}_{split}.csv', index = False)
 
 end_time = time.time()
 execution_time = end_time - start_time
