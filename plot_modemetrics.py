@@ -8,10 +8,12 @@ from plotly.subplots import make_subplots
 Hpred = 6
 
 models = ['AgentFormer',
-           'Oracle'
+           'Oracle',
+           'CV model'
            ]
 models_result_paths = ['interaction_mode_metrics_val.csv',
-                        'interaction_mode_metrics_oracle_val.csv'
+                        'interaction_mode_metrics_oracle_val.csv',
+                        'interaction_mode_metrics_cv_val.csv'
                         ]
 
 # combine data into one df:
@@ -44,7 +46,8 @@ for model, path in zip(models, models_result_paths):
 
     df_stats_model = pd.DataFrame({
         'model': [model],
-        'ML prediction consistency': [r_pred_consistency],
+        'ML prediction consistency': [round(100*r_pred_consistency,1)],
+        'mode-collapse ratio': [round(df_temp['r_mode_collapse'].mean(),1)],
         'incorrect a2a predictions':[ round(100 * len(df_notcorrect) / len(df_temp),1)],
         'mean time correct a2a mode': [df_notcorrect['t2cor'].mean()],
         'percentage predictions @ t2cor = 0s': round(100*len(df_0scor)/len(df_temp), 1),
@@ -81,7 +84,7 @@ df_stats = pd.concat(dfs_stats)
 
 # fig.show()
 
-fig = make_subplots(rows=1, cols=3, subplot_titles=('Time to Correct Prediction [s]', 'Time to Covered Prediction [s]','Mode Collapse Ratio [%]', 'ML prediction consistency [%]'))
+fig = make_subplots(rows=1, cols=3)
 colors = px.colors.qualitative.Plotly
 
 # Iterate through unique model values and create histogram for each
@@ -91,20 +94,25 @@ for i, model in enumerate(df_combined['model'].unique(), start=1):
     
     # Add histograms to subplots
     fig.add_trace(
-        go.Histogram(x=data_model['metric t2cor'], nbinsx=10, 
+        go.Histogram(x=data_model['metric t2cor'], nbinsx=10, histnorm='percent',
                      name=model, marker_color=colors[i-1], legendgroup=model, showlegend=False),
         row=1, col=1
     )
     fig.add_trace(
-        go.Histogram(x=data_model['metric t2cov'], nbinsx=10,
+        go.Histogram(x=data_model['metric t2cov'], nbinsx=10, histnorm='percent',
                      name=model, marker_color=colors[i-1], legendgroup=model, showlegend=False),
         row=1, col=2
     )
     fig.add_trace(
-        go.Histogram(x=data_model['r_mode_collapse'], nbinsx=11,
+        go.Histogram(x=data_model['r_mode_collapse'], nbinsx=11, histnorm='percent',
                      name=model, marker_color=colors[i-1], legendgroup=model),
         row=1, col=3
     )
 
+
+fig.update_xaxes(title_text='Time to Covered Prediction [s]', row=1, col=1)
+fig.update_xaxes(title_text='Time to Correct Prediction [s]', row=1, col=2)
+fig.update_xaxes(title_text='Mode Collapse Ratio [%]', row=1, col=3)
+fig.update_yaxes(title_text='Percentage [%]', row=1, col=1)
 
 fig.show()
