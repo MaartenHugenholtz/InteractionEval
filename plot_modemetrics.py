@@ -110,9 +110,11 @@ for i, model in enumerate(df_combined['model'].unique(), start=1):
     )
 
 
-fig.update_xaxes(title_text='Time to Covered Prediction [s]', row=1, col=1)
-fig.update_xaxes(title_text='Time to Correct Prediction [s]', row=1, col=2)
+fig.update_xaxes(title_text='Time to Correct Prediction [s]', row=1, col=1)
+fig.update_xaxes(title_text='Time to Covered Prediction [s]', row=1, col=2)
 fig.update_xaxes(title_text='Mode Collapse Ratio [%]', row=1, col=3)
-fig.update_yaxes(title_text='Percentage [%]', row=1, col=1)
+fig.update_yaxes(title_text='Percentage', range=[0, 105], row=1, col=1)
+fig.update_yaxes(range=[0, 105], row=1, col=2)
+fig.update_yaxes(range=[0, 105], row=1, col=3)
 
 fig.show()
