@@ -420,7 +420,8 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
                 
                 # take maximum, to get timestep path sharing boolean. Problem maximum: very big time horizon differences.. Solution: Real time difference bool.
                 # assert(not (agent1_id=='10')*(agent2_id=='5'))
-                interaction = (real_time_closest_distance<=interaction_threshold)*(start_path_sharing_frame_difference<=12)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
+                # interaction = (real_time_closest_distance<=interaction_threshold)*(start_path_sharing_frame_difference<=12)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
+                interaction = (start_path_sharing_frame_difference<=12)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
 
 
                 pathcrossing_interaction = len(interaction) > 2 and interaction.argmax() > 0

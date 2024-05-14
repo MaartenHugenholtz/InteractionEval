@@ -1,3 +1,0 @@
-agent1,agent2,gt_mode,h_final_frame,time_pred,t2cor,t2cov,pred_consistency,r_mode_collapse,scene
-99,4,2.0,2,1.0,0.5,1.0,True,0.5,scene-0099
-99,6,2.0,1,0.5,0.0,0.0,True,1.0,scene-0099

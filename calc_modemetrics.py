@@ -59,6 +59,9 @@ def get_model_prediction(data, sample_k):
 
 """ Get predictions and compute metrics """
 
+H_PRED = cfg.future_frames # frames
+
+
 
 df_modemetrics = pd.DataFrame()
 df_interactions = pd.read_csv('interaction_metrics_val.csv')
@@ -66,12 +69,13 @@ df_interactions = pd.read_csv('interaction_metrics_val.csv')
 
 split = 'val'
 save_pred_imgs_path = f'pred_imgs_{split}'
+mode_metrics_path = f'interaction_mode_metrics_{split}_Tpred_{H_PRED}f.csv'
 plot = False
 plot_all = False
-save_imgs = True
+save_imgs = False
 
 focus_scene_bool = True
-scene_focus_name = 'scene-0103'
+scene_focus_name = 'scene-0093'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
@@ -106,7 +110,7 @@ for idx, row in df_interactions.iterrows():
             agents_scene = list(df_scene.agent_id.unique()) # definitive order for agent ids in all tensors
             for agent in agents_scene:
                 df_agent = df_scene[df_scene.agent_id == agent]
-                agent_class = Agent(df_agent, v_max = vmax_scene) # impose vmax based on gt scene velocities
+                agent_class = Agent(df_agent, v_max = vmax_scene, fut_steps=H_PRED) # impose vmax based on gt scene velocities
                 agent_dict.update({agent: agent_class})
 
 
@@ -130,6 +134,9 @@ for idx, row in df_interactions.iterrows():
                 with torch.no_grad():
                     recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
                 recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+                
+                sample_motion_3D = sample_motion_3D[:,:,:H_PRED,:]
+                recon_motion_3D = recon_motion_3D[:,:H_PRED,:]
 
                 data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
                 # calculate roll-outs for possible agent pairs:
@@ -162,15 +169,15 @@ for idx, row in df_interactions.iterrows():
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
 
-                if frame == 11:
-                    fig.update_layout(
-                        margin=dict(
-                            l=0,  # left margin
-                            r=0,  # right margin
-                        )
-                    )
-                    fig.show()
-                    pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
+                # if frame == 11:
+                #     fig.update_layout(
+                #         margin=dict(
+                #             l=0,  # left margin
+                #             r=0,  # right margin
+                #         )
+                #     )
+                #     fig.show()
+                #     pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 
                 if plot_all:
@@ -218,7 +225,7 @@ for idx, row in df_interactions.iterrows():
         print(e)
 # save df
 if not focus_scene_bool:
-    df_interactions.to_csv(f'interaction_mode_metrics_{split}.csv', index = False)
+    df_interactions.to_csv(mode_metrics_path, index = False)
 
 end_time = time.time()
 execution_time = end_time - start_time

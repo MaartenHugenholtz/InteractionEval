@@ -13,6 +13,7 @@ map_version                  : 0.1
 
 past_frames                  : 4
 future_frames                : 12
+# future_frames                : 6
 # min_past_frames              : 4 
 # min_future_frames            : 12 
 min_past_frames              : 2 

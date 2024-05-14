@@ -48,8 +48,8 @@ for scene in tqdm(scene_preprocessors):
     df_scene = Agent.process_data(gt)
     agents_scene = list(df_scene.agent_id.unique()) # definitive order for agent ids in all tensors
 
-    if scene.seq_name == 'scene-1072' :#'scene-0103':
-        print()
+    # if scene.seq_name == 'scene-1072' :#'scene-0103':
+    #     print()
 
     path_intersection_bool, inframes_bool, df_modemetrics_scene = calc_path_intersections(df_scene, agents_scene, pred_frames)
 

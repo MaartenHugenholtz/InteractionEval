@@ -7,11 +7,13 @@ from plotly.subplots import make_subplots
 
 Hpred = 6
 
-models = ['AgentFormer',
+models = ['AF_6frames',
+    'AgentFormer',
            'Oracle',
            'CV model'
            ]
-models_result_paths = ['interaction_mode_metrics_val.csv',
+models_result_paths = ['interaction_mode_metrics_val_Tpred_6f.csv',
+    'interaction_mode_metrics_val.csv',
                         'interaction_mode_metrics_oracle_val.csv',
                         'interaction_mode_metrics_cv_val.csv'
                         ]
