@@ -57,11 +57,11 @@ plot_mode_overview = False
 plot_all_modes = False
 plot_all_scenes = False
 
-save_modes_plots = True
+save_modes_plots = False
 save_modes_csv = True
 
 focus_scene_bool = False
-scene_focus_name = 'scene-0103'
+scene_focus_name = 'scene-0104'
 
 """"""" SETUP """""""
 torch.set_default_dtype(torch.float32)
@@ -92,15 +92,15 @@ def get_model_prediction_af(data, sample_k):
 
 
 """ Get predictions and compute metrics """
-df_interactions = pd.read_csv(interaction_scenes_input) # input and output
-
+df_interactions_in = pd.read_csv(interaction_scenes_input) # input
+df_interactions_out = df_interactions_in.copy() # save output in similar df
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
 scene_names = [scene_preprocessors[s].seq_name for s in range(len(scene_preprocessors))]
 
 
-for idx, row in df_interactions.iterrows():
+for idx, row in df_interactions_in.iterrows():
 
     try:
         # get relevant interaction variables
@@ -237,11 +237,11 @@ for idx, row in df_interactions.iterrows():
                         r_mode_collapse = round(100*(sum(mode_collapse)/len(mode_collapse)), 1)
 
                         # save metrics to existing df
-                        df_interactions.loc[idx, 'pred_time'] = pred_time
-                        df_interactions.loc[idx, 't2cor'] = t2cor
-                        df_interactions.loc[idx, 't2cov'] = t2cov
-                        df_interactions.loc[idx, 'r_mode_collapse'] = r_mode_collapse
-                        df_interactions.loc[idx, 'prediction_consistency'] = prediction_consistentcy
+                        df_interactions_out.loc[idx, 'pred_time'] = pred_time
+                        df_interactions_out.loc[idx, 't2cor'] = t2cor
+                        df_interactions_out.loc[idx, 't2cov'] = t2cov
+                        df_interactions_out.loc[idx, 'r_mode_collapse'] = r_mode_collapse
+                        df_interactions_out.loc[idx, 'prediction_consistency'] = prediction_consistentcy
 
                         # save figure and metrics:
                         fig = figs_scene[-2]
@@ -257,6 +257,8 @@ for idx, row in df_interactions.iterrows():
                             pio.write_image(fig, save_pred_imgs_path + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}.png',width=1200, height=1000)
                     else:
                         raise ValueError('prediction length too short for mode evaluation')
+                        # print('prediction length too short for mode evaluation')
+
                     break # break for loop 
 
     except Exception as e:
@@ -265,7 +267,7 @@ for idx, row in df_interactions.iterrows():
 
 # save df
 if save_modes_csv:
-    df_interactions.to_csv(mode_metrics_path, index = False)
+    df_interactions_out.to_csv(mode_metrics_path, index = False)
 
 end_time = time.time()
 execution_time = end_time - start_time
