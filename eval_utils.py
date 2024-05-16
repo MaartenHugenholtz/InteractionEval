@@ -184,28 +184,22 @@ def calc_travelled_distance(motion_tensor):
     return distances_total # total travelled distance for each sim by each agent, so shape = (sims, agents)
 
 
-# PREDICTION AND METRIC VARS:
-PRED_FRAMES = 12
-MIN_INTERACTION_FRAMES = 1
-MIN_PRED_FRAMES = 1
-FPS = 2
-
-def calc_time_based_metric(mode_vector):
+def calc_time_based_metric(mode_vector, Hpred = 12, fps = 2):
     """ Calculate the time before the inevitable homotopy point at which the mode is precicted correctly"""
-    if len(mode_vector) > PRED_FRAMES:
-        mode_vector = mode_vector[-PRED_FRAMES:]
+    if len(mode_vector) > Hpred:
+        mode_vector = mode_vector[-Hpred:]
 
     frames_cmpd = len(mode_vector) # number of frames that can be used for calculation, used for relative metric! 
-    time_cmpd = frames_cmpd / FPS
+    time_cmpd = frames_cmpd / fps
     # make code here for cases where it is shorter! And probably best to express in %
 
     if mode_vector.min(): # all correct predictions
-        t2cmpd = frames_cmpd / FPS
+        t2cmpd = frames_cmpd / fps
 
     elif mode_vector.max(): # correct prediction at some point # how to handle inconsistent predictions?
         # homotopy classes also false if no interaction.  ---> should get beginning frame too in interaction_matrix! 
         idx_correct = np.argmin(mode_vector[::-1]) 
-        t2cmpd = (idx_correct) / FPS  
+        t2cmpd = (idx_correct) / fps  
 
     else: # only wrong mode predictions
         t2cmpd = 0 
@@ -353,7 +347,10 @@ def calc_intersections(motion_tensor, interp_factor = 100, threshold_distance = 
     return interaction_bool, torch.from_numpy(distances_matrix)
 
 
-def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor = 10, onpath_threshold = 1.5, interaction_threshold = 20) :
+def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor = 10, onpath_threshold = 1.5, 
+                            interaction_threshold = 20,
+                            start_path_sharing_frame_difference_theshold = 12,
+                            use_distance_criterion = False) :
     df_scene = df_scene[(df_scene.frame >= pred_frames.min())*(df_scene.frame <= pred_frames.max())]
     num_agents = len(agents_scene)
     num_frames = len(pred_frames)
@@ -420,8 +417,10 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
                 
                 # take maximum, to get timestep path sharing boolean. Problem maximum: very big time horizon differences.. Solution: Real time difference bool.
                 # assert(not (agent1_id=='10')*(agent2_id=='5'))
-                # interaction = (real_time_closest_distance<=interaction_threshold)*(start_path_sharing_frame_difference<=12)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
-                interaction = (start_path_sharing_frame_difference<=12)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
+                if use_distance_criterion:
+                    interaction = (real_time_closest_distance<=interaction_threshold)*(start_path_sharing_frame_difference<=start_path_sharing_frame_difference_theshold)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
+                else:
+                    interaction = (start_path_sharing_frame_difference<=start_path_sharing_frame_difference_theshold)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
 
 
                 pathcrossing_interaction = len(interaction) > 2 and interaction.argmax() > 0

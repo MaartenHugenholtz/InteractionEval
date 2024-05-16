@@ -16,25 +16,62 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 from agent_class import Agent
-import time
+import time 
 from tqdm import tqdm
-
-
+from ctt_model import get_model_prediction as get_model_prediction_ctt
+from cv_model import get_model_prediction as get_model_prediction_cv
+from oracle_model import get_model_prediction as get_model_prediction_oracle
+import logging
+logging.basicConfig(filename='calc_modemetric.log', 
+                    level = logging.DEBUG,    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', # Log message format
+                    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger('calc_modemetric')
 start_time = time.time()
 
-""" setup """
+
+""" MODEL """
 cfg = Config('nuscenes_5sample_agentformer' )
-epochs = [cfg.get_last_epoch()]
-epoch = epochs[0]
+############################################
+H_PRED = 12 # frames (at 2 Hz)
+cfg.future_frames  = H_PRED  # overwrite H_pred in config!
+MODEL = 'AF'
+# MODEL = 'CTT'
+# MODEL = 'cv'
+# MODEL = 'oracle'
 
+# only used for oracle/cv
+if MODEL == 'oracle':
+    use_gt_path = True
+else:
+    use_gt_path = False
 
+"""" DATA"""
+interaction_scenes_input = 'interaction_scenes/interaction_metrics_val.csv'
+
+split = 'val'
+save_pred_imgs_path = f'pred_imgs_{MODEL}_{split}_{H_PRED}f'
+mkdir_if_missing(save_pred_imgs_path)
+mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f.csv'
+
+plot_mode_overview = False
+plot_all_modes = False
+plot_all_scenes = False
+
+save_modes_plots = True
+save_modes_csv = True
+
+focus_scene_bool = False
+scene_focus_name = 'scene-0103'
+
+""""""" SETUP """""""
 torch.set_default_dtype(torch.float32)
 device = torch.device('cuda', index=0) if 0 >= 0 and torch.cuda.is_available() else torch.device('cpu')
 if torch.cuda.is_available(): torch.cuda.set_device(0)
 torch.set_grad_enabled(False)
 log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
-
+epochs = [cfg.get_last_epoch()]
+epoch = epochs[0]
 model_id = cfg.get('model_id', 'agentformer')
 model = model_dict[model_id](cfg)
 model.set_device(device)
@@ -44,38 +81,19 @@ print_log(f'loading model from checkpoint: {cp_path}', log, display=True)
 model_cp = torch.load(cp_path, map_location='cpu')
 model.load_state_dict(model_cp['model_dict'], strict=False)
 
-""""  #################  """
-
-
-def get_model_prediction(data, sample_k):
+def get_model_prediction_af(data, sample_k):
     model.set_data(data)
     recon_motion_3D, _ = model.inference(mode='recon', sample_num=sample_k)
     sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
     sample_motion_3D = sample_motion_3D.transpose(0, 1).contiguous()
     return recon_motion_3D, sample_motion_3D
 
-
+""""  #################  """
 
 
 """ Get predictions and compute metrics """
+df_interactions = pd.read_csv(interaction_scenes_input) # input and output
 
-H_PRED = cfg.future_frames # frames
-
-
-
-df_modemetrics = pd.DataFrame()
-df_interactions = pd.read_csv('interaction_metrics_val.csv')
-
-
-split = 'val'
-save_pred_imgs_path = f'pred_imgs_{split}'
-mode_metrics_path = f'interaction_mode_metrics_{split}_Tpred_{H_PRED}f.csv'
-plot = False
-plot_all = False
-save_imgs = False
-
-focus_scene_bool = True
-scene_focus_name = 'scene-0093'
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
@@ -113,6 +131,7 @@ for idx, row in df_interactions.iterrows():
                 agent_class = Agent(df_agent, v_max = vmax_scene, fut_steps=H_PRED) # impose vmax based on gt scene velocities
                 agent_dict.update({agent: agent_class})
 
+            path_intersection_bool, inframes_bool, df_modemetrics_scene = calc_path_intersections(df_scene, agents_scene, pred_frames)
 
             figs_scene = []
             modes_scene = []
@@ -130,15 +149,34 @@ for idx, row in df_interactions.iterrows():
                 frame = int(frame)
                 sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
                 sys.stdout.flush()
-
-                with torch.no_grad():
-                    recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
-                recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+                # path_intersction for current agents in frame (for cv/oracle)
+                idx_scene_agents = [agents_scene.index(str(int(agent_id))) for agent_id in data['valid_id']]
+                path_intersection_bool_frame = path_intersection_bool[idx_scene_agents,:][:,idx_scene_agents] # re-order according to data[valid_id]
+                
+                ### GET MODEL PREDICTIONS ###
+                if MODEL == 'AF':
+                    with torch.no_grad():
+                        recon_motion_3D, sample_motion_3D = get_model_prediction_af(data, cfg.sample_k)
+                    recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+                elif MODEL == 'CTT':
+                    assert H_PRED == 6, 'CTT not made for H_pred other than 6'
+                    try:
+                        recon_motion_3D, sample_motion_3D = get_model_prediction_ctt(data, cfg.sample_k)
+                    except ValueError:
+                        continue
+                elif MODEL == 'cv':
+                    recon_motion_3D, sample_motion_3D = get_model_prediction_cv(data, cfg.sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = use_gt_path)
+                elif MODEL == 'oracle':
+                    recon_motion_3D, sample_motion_3D = get_model_prediction_oracle(data, cfg.sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = use_gt_path)
+                else:
+                    raise NameError
                 
                 sample_motion_3D = sample_motion_3D[:,:,:H_PRED,:]
                 recon_motion_3D = recon_motion_3D[:,:H_PRED,:]
 
-                data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
+                if plot_all_scenes:
+                    data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
+
                 # calculate roll-outs for possible agent pairs:
 
                 fut_mod_decel_list = []
@@ -180,7 +218,7 @@ for idx, row in df_interactions.iterrows():
                 #     pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 
-                if plot_all:
+                if plot_all_modes:
                     fig.show()
 
                 if scene_mode_dict['h_final']:
@@ -188,13 +226,13 @@ for idx, row in df_interactions.iterrows():
                     # at what point to cut the data? pred horizon? gt mode? 
                     df_modes_pair_filt = df_modes_pair[df_modes_pair.gt_mode == df_modes_pair.gt_mode.values[-1]] # cut data with other modes
                     df_modes_pair_filt = df_modes_pair_filt[~df_modes_pair_filt['h_final']] # only look at predictions before the homotoyp class is inevitable
-                    df_modes_pair_filt = df_modes_pair_filt.tail(PRED_FRAMES) # limit to number of prediciton frames
+                    df_modes_pair_filt = df_modes_pair_filt.tail(H_PRED) # limit to number of prediciton frames
                     # df_modes_pair_filt[df_modes_pair_filt.keys()[[0,1,2,3,4,5,6,7,10]]]
                     # calc metrics:
                     if len(df_modes_pair_filt) > 0:
                         prediction_consistentcy = check_consistency(df_modes_pair_filt['ml_mode'])
-                        t2cor, pred_time = calc_time_based_metric(df_modes_pair_filt['mode_correct'])
-                        t2cov, _ = calc_time_based_metric(df_modes_pair_filt['mode_covered'])
+                        t2cor, pred_time = calc_time_based_metric(df_modes_pair_filt['mode_correct'], Hpred = H_PRED)
+                        t2cov, _ = calc_time_based_metric(df_modes_pair_filt['mode_covered'], Hpred = H_PRED)
                         mode_collapse = df_modes_pair_filt['N_modes_covered'] < df_modes_pair_filt['N_feasible_rollouts']
                         r_mode_collapse = round(100*(sum(mode_collapse)/len(mode_collapse)), 1)
 
@@ -213,18 +251,20 @@ for idx, row in df_interactions.iterrows():
                         fig.update_layout(
                                 title=dict(text = title),
                             )
-                        if plot:
+                        if plot_mode_overview:
                             fig.show()
-                        if save_imgs:
+                        if save_modes_plots:
                             pio.write_image(fig, save_pred_imgs_path + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}.png',width=1200, height=1000)
                     else:
-                        print('prediction length too short for mode evaluation')
+                        raise ValueError('prediction length too short for mode evaluation')
                     break # break for loop 
 
     except Exception as e:
         print(e)
+        logger.error(f'Error for {MODEL} model (Tpred {H_PRED} frames) in {scene_name} for agents: {str(focus_agents)}: {e}')
+
 # save df
-if not focus_scene_bool:
+if save_modes_csv:
     df_interactions.to_csv(mode_metrics_path, index = False)
 
 end_time = time.time()

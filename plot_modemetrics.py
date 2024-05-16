@@ -5,18 +5,30 @@ import numpy as np
 import pandas as pd
 from plotly.subplots import make_subplots
 
-Hpred = 6
+Hpred_time = 6 # TIME NOT FRAMES!
 
-models = ['AF_6frames',
+# models = ['AF_6frames',
+#     'AgentFormer',
+#            'Oracle',
+#            'CV model'
+#            ]
+# models_result_paths = ['interaction_mode_metrics_val_Tpred_6f.csv',
+#     'interaction_mode_metrics_val.csv',
+#                         'interaction_mode_metrics_oracle_val.csv',
+#                         'interaction_mode_metrics_cv_val.csv'
+#                         ]
+
+models = [
     'AgentFormer',
            'Oracle',
            'CV model'
            ]
-models_result_paths = ['interaction_mode_metrics_val_Tpred_6f.csv',
-    'interaction_mode_metrics_val.csv',
-                        'interaction_mode_metrics_oracle_val.csv',
-                        'interaction_mode_metrics_cv_val.csv'
+models_result_paths = ['mode_metric_results/interaction_mode_metrics_AF_val_Tpred_12f.csv',
+                        'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_12f.csv',
+                        'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_12f.csv'
                         ]
+
+
 
 # combine data into one df:
 dfs = []
@@ -26,14 +38,14 @@ consistencies = []
 for model, path in zip(models, models_result_paths):
     df_temp = pd.read_csv(path).dropna()
     df_temp['model'] = model
-    df_temp['metric t2cor'] = df_temp.apply(lambda row: row['t2cor'] if row['t2cor'] < row['pred_time'] else Hpred, axis=1)
-    df_temp['metric t2cov'] = df_temp.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred, axis=1)
+    df_temp['metric t2cor'] = df_temp.apply(lambda row: row['t2cor'] if row['t2cor'] < row['pred_time'] else Hpred_time, axis=1)
+    df_temp['metric t2cov'] = df_temp.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred_time, axis=1)
     dfs.append(df_temp)
 
     # print stats
-    df_notcorrect = df_temp[df_temp['metric t2cor'] < Hpred]
+    df_notcorrect = df_temp[df_temp['metric t2cor'] < Hpred_time]
     df_0scor = df_temp[df_temp['metric t2cor'] ==0]
-    df_notcovered = df_temp[df_temp['metric t2cov'] < Hpred]
+    df_notcovered = df_temp[df_temp['metric t2cov'] < Hpred_time]
     df_0scov = df_temp[df_temp['metric t2cov'] ==0]
 
     print(f'MODEL: {model}')

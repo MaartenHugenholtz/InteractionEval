@@ -37,6 +37,7 @@ log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 """ Get predictions and compute metrics """
 
 split = 'val'
+use_distance_criterion = False
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
@@ -51,7 +52,8 @@ for scene in tqdm(scene_preprocessors):
     # if scene.seq_name == 'scene-1072' :#'scene-0103':
     #     print()
 
-    path_intersection_bool, inframes_bool, df_modemetrics_scene = calc_path_intersections(df_scene, agents_scene, pred_frames)
+    path_intersection_bool, inframes_bool, df_modemetrics_scene = calc_path_intersections(df_scene, agents_scene, pred_frames,
+                                                                                          use_distance_criterion = use_distance_criterion)
 
 
     df_modemetrics_scene['scene'] = scene.seq_name
@@ -66,4 +68,4 @@ print("Execution Time:", execution_time, "seconds")
 
 # save result:
 print(df_modemetrics)
-df_modemetrics.to_csv(f'interaction_metrics_{split}.csv', index = False)
+df_modemetrics.to_csv(f'interaction_scenes/interaction_metrics_{split}.csv', index = False)
