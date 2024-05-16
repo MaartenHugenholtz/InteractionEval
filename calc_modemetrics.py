@@ -18,9 +18,9 @@ import plotly.io as pio
 from agent_class import Agent
 import time 
 from tqdm import tqdm
-from ctt_model import get_model_prediction as get_model_prediction_ctt
-from cv_model import get_model_prediction as get_model_prediction_cv
-from oracle_model import get_model_prediction as get_model_prediction_oracle
+from models.ctt_model import get_model_prediction as get_model_prediction_ctt
+from models.cv_model import get_model_prediction as get_model_prediction_cv
+from models.oracle_model import get_model_prediction as get_model_prediction_oracle
 import logging
 logging.basicConfig(filename='calc_modemetric.log', 
                     level = logging.DEBUG,    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', # Log message format
@@ -49,7 +49,7 @@ else:
 interaction_scenes_input = 'interaction_scenes/interaction_metrics_val.csv'
 
 split = 'val'
-save_pred_imgs_path = f'pred_imgs_{MODEL}_{split}_{H_PRED}f'
+save_pred_imgs_path = f'pred_imgs/{MODEL}_{split}_{H_PRED}f'
 mkdir_if_missing(save_pred_imgs_path)
 mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f.csv'
 
@@ -57,7 +57,7 @@ plot_mode_overview = False
 plot_all_modes = False
 plot_all_scenes = False
 
-save_modes_plots = False
+save_modes_plots = True
 save_modes_csv = True
 
 focus_scene_bool = False
@@ -131,7 +131,7 @@ for idx, row in df_interactions_in.iterrows():
                 agent_class = Agent(df_agent, v_max = vmax_scene, fut_steps=H_PRED) # impose vmax based on gt scene velocities
                 agent_dict.update({agent: agent_class})
 
-            path_intersection_bool, inframes_bool, df_modemetrics_scene = calc_path_intersections(df_scene, agents_scene, pred_frames)
+            path_intersection_bool, _, _ = calc_path_intersections(df_scene, agents_scene, pred_frames)
 
             figs_scene = []
             modes_scene = []
@@ -149,6 +149,7 @@ for idx, row in df_interactions_in.iterrows():
                 frame = int(frame)
                 sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
                 sys.stdout.flush()
+
                 # path_intersction for current agents in frame (for cv/oracle)
                 idx_scene_agents = [agents_scene.index(str(int(agent_id))) for agent_id in data['valid_id']]
                 path_intersection_bool_frame = path_intersection_bool[idx_scene_agents,:][:,idx_scene_agents] # re-order according to data[valid_id]
