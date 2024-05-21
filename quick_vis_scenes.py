@@ -55,9 +55,8 @@ def get_model_prediction(data, sample_k):
 
 """ Get predictions and compute metrics """
 
-split = 'train'
-plot = False
-use_crossing_pairs = False
+split = 'val'
+focus_scene = 'scene-0103'
 
 
 generator = data_generator(cfg, log, split=split, phase='testing')
@@ -66,7 +65,7 @@ df_modemetrics = pd.DataFrame()
 
 for scene in scene_preprocessors:
 
-    if scene.seq_name == 'scene-1077':
+    if scene.seq_name == focus_scene:
 
         gt = scene.gt
         pred_frames = scene.pred_frames

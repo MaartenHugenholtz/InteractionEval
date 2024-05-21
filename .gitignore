@@ -2,7 +2,6 @@
 #/datasets
 #/CTT_predictions
 # /pred_imgs_val
-/pred_imgs_train
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
