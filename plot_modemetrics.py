@@ -4,31 +4,40 @@ import plotly.io as pio
 import numpy as np
 import pandas as pd
 from plotly.subplots import make_subplots
+import plotly.io as pio
 
 Hpred_time = 6 # TIME NOT FRAMES!
 
-# models = ['AF_6frames',
-#     'AgentFormer',
-#            'Oracle',
-#            'CV model'
-#            ]
-# models_result_paths = ['interaction_mode_metrics_val_Tpred_6f.csv',
-#     'interaction_mode_metrics_val.csv',
-#                         'interaction_mode_metrics_oracle_val.csv',
-#                         'interaction_mode_metrics_cv_val.csv'
-#                         ]
+save_plot = True
+save_path = f'mode_metric_results/mode_metrics_{Hpred_time}s.png'
 
-models = [
-    'AgentFormer',
+Title = f'Model prediction results @ {Hpred_time}s'
+
+
+if Hpred_time == 6: # time not frames, so 6s == 12f
+    models = [
+           'AgentFormer',
            'Oracle',
-           'CV model'
+           'CV model',
            ]
-models_result_paths = ['mode_metric_results/interaction_mode_metrics_AF_val_Tpred_12f.csv',
+    models_result_paths = ['mode_metric_results/interaction_mode_metrics_AF_val_Tpred_12f.csv',
                         'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_12f.csv',
-                        'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_12f.csv'
+                        'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_12f.csv',
                         ]
-
-
+elif Hpred_time ==3: # time not frames, so 3s == 6f
+    models = [
+           'AgentFormer',
+           'Oracle',
+           'CV model',
+           'CTT'
+           ]
+    models_result_paths = ['mode_metric_results/interaction_mode_metrics_AF_val_Tpred_6f.csv',
+                        'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_6f.csv',
+                        'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_6f.csv',
+                        'mode_metric_results/interaction_mode_metrics_CTT_val_Tpred_6f.csv',
+                        ]
+else:
+    raise NameError
 
 # combine data into one df:
 dfs = []
@@ -76,29 +85,8 @@ df_stats = pd.concat(dfs_stats)
 
 
 
-# fig = px.histogram(df_combined, x='r_mode_collapse', color = 'model', barmode= 'group',nbins=11, title='mode collapse ratio')
-# fig.show()
-
-# fig = px.histogram(df_combined, x='metric t2cor',color = 'model', barmode= 'group',nbins=10, title='time to correct prediction [s]')
-# fig.show()
-
-# fig = px.histogram(df_combined, x='metric t2cov',color = 'model', barmode= 'group',nbins=10, title='time to covered prediction [s]')
-# fig.show()
-
-# # Create subplots
-# fig = make_subplots(rows=1, cols=4, subplot_titles=('Time to Correct Prediction [s]', 'Time to Covered Prediction [s]', 'Mode Collapse Ratio', 'Prediction Consistency'))
-
-# # Add histograms to subplots
-# for i, model in enumerate(models):
-#     fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['metric t2cor'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=1)
-#     fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['metric t2cov'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=2)
-#     fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['r_mode_collapse'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=3)
-#     # fig.add_trace(go.Histogram(x = df_combined[df_combined['model']==model]['metric t2cor'].values,legendgroup = model, legendgrouptitle=model, bingroup = model), row=1, col=4)
-
-
-# fig.show()
-
 fig = make_subplots(rows=1, cols=3)
+fig.update_layout(title_text = Title)
 colors = px.colors.qualitative.Plotly
 
 # Iterate through unique model values and create histogram for each
@@ -132,3 +120,6 @@ fig.update_yaxes(range=[0, 105], row=1, col=2)
 fig.update_yaxes(range=[0, 105], row=1, col=3)
 
 fig.show()
+
+if save_plot:
+    pio.write_image(fig, save_path, width=1*1700/1.1, height=0.8*800/1.2)
