@@ -51,20 +51,36 @@ for model, path in zip(models, models_result_paths):
     df_temp['metric t2cov'] = df_temp.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred_time, axis=1)
     dfs.append(df_temp)
 
-    # print stats
+    # calc stats
     df_notcorrect = df_temp[df_temp['metric t2cor'] < Hpred_time]
     df_0scor = df_temp[df_temp['metric t2cor'] ==0]
     df_notcovered = df_temp[df_temp['metric t2cov'] < Hpred_time]
     df_0scov = df_temp[df_temp['metric t2cov'] ==0]
 
-    print(f'MODEL: {model}')
-    print(f'{len(df_temp)} interactions in dataset')
-    print(f"{round(100 * len(df_notcorrect) / len(df_temp),1)}% of the intentions not correct, with {df_notcorrect['t2cor'].mean()}s as average time-to-correct-mode-prediction")
-    print(f"{round(100*len(df_0scor)/len(df_temp), 1)}% of the intentions not correctly predicted before inevitable homotopy collapse (t2cor = 0s)")
+    N_interactions = len(df_temp)
+    perc_not_correct = round(100 * len(df_notcorrect) / len(df_temp),1)
+    perc_correct = round(100 - perc_not_correct, 1)
+    avg_t2cor = df_notcorrect['t2cor'].mean()
+    perc_t2cor_0s = round(100*len(df_0scor)/len(df_temp), 1)
+    perc_not_covered = round(100 * len(df_notcovered) / len(df_temp),1)
+    perc_covered = round(100 - perc_not_covered, 1)
+    avg_t2cov = df_notcovered['t2cov'].mean()
+    perc_t2cov_0s = round(100*len(df_0scov)/len(df_temp), 1)
+
     r_pred_consistency = len(df_temp[df_temp.prediction_consistency == True]) / len(df_temp)
+    perc_pred_consistency = round(100*r_pred_consistency,1)
+    perc_mode_collapse = round(df_temp['r_mode_collapse'].mean(),1)
     consistencies.append(r_pred_consistency)
-    print(f'Prediction consistency = {round(100*r_pred_consistency,1)}%')
-    print(f"Average mode-collapse = {round(df_temp['r_mode_collapse'].mean(),1)}%")
+
+    # print stats
+    print(f'MODEL: {model}')
+    print(f'{N_interactions} interactions in dataset')
+    print(f"{perc_not_correct}% of the intentions not correct, with {avg_t2cor}s as average time-to-correct-mode-prediction")
+    print(f"{perc_t2cor_0s}% of the intentions not correctly predicted before inevitable homotopy collapse (t2cor = 0s)")
+
+    print(f'Prediction consistency = {perc_pred_consistency}%')
+    print(f"Average mode-collapse = {perc_mode_collapse}%")
+    print(f'Latex table str: {model} & {avg_t2cor:.1f} & {perc_t2cor_0s:.1f} & {perc_correct:.1f} & {avg_t2cov:.1f} & {perc_t2cov_0s:.1f} & {perc_covered:.1f} & {perc_mode_collapse:.1f} & {perc_pred_consistency:.1f}  \\')
     print()
 
     df_stats_model = pd.DataFrame({
@@ -122,4 +138,4 @@ fig.update_yaxes(range=[0, 105], row=1, col=3)
 fig.show()
 
 if save_plot:
-    pio.write_image(fig, save_path, width=1*1700/1.1, height=0.8*800/1.2)
+    pio.write_image(fig, save_path, width=0.8*1*1700/1.1, height=0.8*0.8*800/1.2)
