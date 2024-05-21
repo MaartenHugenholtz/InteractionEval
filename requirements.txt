@@ -1,0 +1,10 @@
+tensorboard
+opencv-python
+glob2
+six
+pyyaml
+easydict
+nuscenes-devkit
+plotly
+pandas
+kaleido==0.2.1
