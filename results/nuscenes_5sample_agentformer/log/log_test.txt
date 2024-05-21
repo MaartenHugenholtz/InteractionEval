@@ -1,1 +1,0 @@
-loading model from checkpoint: results/nuscenes_5sample_agentformer/models/model_0035.p
