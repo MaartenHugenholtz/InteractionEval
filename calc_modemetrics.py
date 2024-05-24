@@ -46,7 +46,7 @@ else:
     use_gt_path = False
 
 """" DATA"""
-interaction_scenes_input = 'interaction_scenes/interaction_metrics_val.csv'
+interaction_scenes_input = 'interaction_scenes/interaction_metrics_val_all.csv'
 
 split = 'val'
 save_pred_imgs_path = f'pred_imgs/{MODEL}_{split}_{H_PRED}f'
@@ -93,6 +93,7 @@ def get_model_prediction_af(data, sample_k):
 
 """ Get predictions and compute metrics """
 df_interactions_in = pd.read_csv(interaction_scenes_input) # input
+df_interactions_in = df_interactions_in[df_interactions_in.interaction_bool] # new format contains all possible interactions --> filter on interaction bool
 df_interactions_out = df_interactions_in.copy() # save output in similar df
 
 generator = data_generator(cfg, log, split=split, phase='testing')

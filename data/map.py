@@ -259,6 +259,108 @@ class GeometricMap(Map):
         x_points = [fl_corner[0], fr_corner[0], rr_corner[0], rl_corner[0], fl_corner[0]] + xc
         y_points = [fl_corner[1], fr_corner[1], rr_corner[1], rl_corner[1], fl_corner[1]] + yc
         return x_points, y_points
+    
+    def visualize_pair_gt_scene(self, df_scene, agent_pair):
+        """
+        Plots GT trajectories (full)
+        And predictions for all agents (grouped per scene prediction)
+        """
+        str_list_pair = [str(agent_pair[0]),str(agent_pair[1])]
+        df_pair = df_scene[df_scene.agent_id.isin(str_list_pair)]
+        df1 = df_scene[df_scene['agent_id'] == str(int(agent_pair[0]))]
+        df2 = df_scene[df_scene['agent_id'] == str(int(agent_pair[1]))]
+        common_start_frame = max(df1.frame.min(), df2.frame.min())
+        common_end_frame = min(df1.frame.max(), df2.frame.max())
+        # filter on common frames:
+        df1 = df1[(df1.frame >= common_start_frame)*(df1.frame <= common_end_frame)]
+        df2 = df2[(df2.frame >= common_start_frame)*(df2.frame <= common_end_frame)]
+
+        # get common frames and put in similar format
+
+
+        all_motion = np.stack([df1[['x', 'y']].values, df2[['x', 'y']].values]) # shape: 2 x T x 2 ?
+        motion_map = self.to_map_points(all_motion)
+
+        margin = 20
+        # x and y indices reveresd because of motion mapping (same for plotting indices)
+        all_x = motion_map[:,:,1].flatten()
+        all_y = motion_map[:,:,0].flatten()
+
+        # index of current timestamp:
+        idx_cur = 0
+        agent_ids = str_list_pair
+        agent_headings = [df1.heading.values[0], df2.heading.values[0]]
+        agent_lengths =[df1.length.values[0], df2.length.values[0]]
+        agent_widths = [df1.width.values[0], df2.width.values[0]]
+
+        img = np.transpose(self.data, (1, 2, 0))  
+
+        # Create a Plotly figure
+        fig = go.Figure()
+
+        fig = px.imshow(img)
+
+        # colors agents 
+
+        colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
+
+        # Plot the GT trajectories and predictions
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(go.Scatter(
+                x=motion_map[agent_idx,:,1],
+                y=motion_map[agent_idx,:,0],  # x and y reversed for image
+                mode='lines+markers',
+                name = f'gt_agent_{agent_id}',
+                # showlegend= (agent_idx==0),
+                legendgroup='gt',
+                legendgrouptitle_text='gt',
+                line=dict(color=colors[agent_idx])
+            ))
+
+            # add vehicle shapes:
+            x_points, y_points = self.rotate_car(xc = motion_map[agent_idx,idx_cur,0], 
+                                             yc = motion_map[agent_idx,idx_cur,1], 
+                                             l = agent_lengths[agent_idx]*3, # size still needs to be scaled
+                                             w = agent_widths[agent_idx]*3, # size still needs to be scaled
+                                             heading = agent_headings[agent_idx])
+            fig.add_trace(
+                go.Scatter(x=y_points, y=x_points, 
+                           fill="toself",
+                           mode = 'lines',
+                            legendgroup='gt',
+                            name = f'gt_agent_{agent_id}',
+                            showlegend=False,
+                            line=dict(color=colors[agent_idx]),
+                            ))
+
+
+
+        # Update layout to remove axes
+        fig.update_layout(
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            # title=dict(text = data['seq'] + ', frame-' + str(data['frame'])),
+        )
+
+        # Calculate the range for both axes
+        x_range = all_x.max() - all_x.min()
+        y_range = all_y.max() - all_y.min()
+
+        # Determine the maximum range
+        max_range = max(x_range, y_range)
+        extra_margin_x = (max_range - x_range)/2
+        extra_margin_y = (max_range - y_range)/2
+
+        # Update the axes with the new ranges
+        fig.update_xaxes(range=[all_x.min() - margin - extra_margin_x, all_x.max() + margin + extra_margin_x], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[all_y.max() + margin + extra_margin_y, all_y.min() - margin - extra_margin_y], visible = False, scaleanchor="x", scaleratio=1) #
+        fig.update_layout(showlegend=False)
+
+        # Set margins to zero
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+        # Show the Plotly figure
+        # fig.show()
+        return fig
 
     def visualize_trajs(self, data, prediction):
         """

@@ -17,6 +17,8 @@ import plotly.express as px
 from agent_class import Agent
 import time
 from tqdm import tqdm
+import plotly.io as pio
+
 
 start_time = time.time()
 
@@ -35,6 +37,10 @@ log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 
 """ Get predictions and compute metrics """
+
+save_interaction_maps = True
+# interaction_maps_scenes = ['scene-0103', 'scene-0035', 'scene-0099', 'scene-0108', 'scene-0626', 'scene-0523'] # list of scenenes to save; choose three scenarios
+interaction_maps_scenes = ['scene-0344', 'scene-0795'] # list of scenenes to save; choose three scenarios
 
 split = 'val'
 use_distance_criterion = False
@@ -60,6 +66,14 @@ for scene in tqdm(scene_preprocessors):
     # append to main df:
     df_modemetrics = pd.concat([df_modemetrics, df_modemetrics_scene])
 
+    if save_interaction_maps and scene.seq_name in interaction_maps_scenes:
+        scene_map = scene(1)['scene_vis_map']
+        for i, row in df_modemetrics_scene.iterrows():
+            path = 'interaction_scenes/imgs_pairs_interaction' if row.path_sharing_bool else 'interaction_scenes/imgs_pairs_no_interaction'
+            fig = scene_map.visualize_pair_gt_scene(df_scene, (row.agent1,row.agent2))
+            fname = path + '/' + f'{scene.seq_name}_{row.agent1}_{row.agent2}.png'
+            pio.write_image(fig, fname, width=600, height=600)
+
 
 end_time = time.time()
 execution_time = end_time - start_time
@@ -68,4 +82,4 @@ print("Execution Time:", execution_time, "seconds")
 
 # save result:
 print(df_modemetrics)
-df_modemetrics.to_csv(f'interaction_scenes/interaction_metrics_{split}.csv', index = False)
+df_modemetrics.to_csv(f'interaction_scenes/interaction_metrics_{split}_all.csv', index = False)

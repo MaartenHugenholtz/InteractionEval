@@ -350,7 +350,9 @@ def calc_intersections(motion_tensor, interp_factor = 100, threshold_distance = 
 def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor = 10, onpath_threshold = 1.5, 
                             interaction_threshold = 20,
                             start_path_sharing_frame_difference_theshold = 12,
-                            use_distance_criterion = False) :
+                            use_distance_criterion = False,
+                            min_common_frames = 3, # 2 hist, 1 fut
+                            ) :
     df_scene = df_scene[(df_scene.frame >= pred_frames.min())*(df_scene.frame <= pred_frames.max())]
     num_agents = len(agents_scene)
     num_frames = len(pred_frames)
@@ -376,7 +378,8 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
     # need interpolation here! FIX PROPER INTERPOLATION!!!!! This should resolve proper on_path bools!!! #TODO use np
     pred_frames_interp = np.arange(pred_frames[0], pred_frames[-1]+1/interp_factor, 1/interp_factor)
     
-    df_modes = pd.DataFrame(columns = ['agent1', 'agent2', 'total_num_agents', 'common_start_frame', 'common_end_frame'])
+    df_modes = pd.DataFrame(columns = ['agent1', 'agent2', 'num_agents_scene', 'common_start_frame', 'common_end_frame', 'interaction_bool', 'path_sharing_bool',
+                                       'start_path_sharing_frame_difference','real_time_closest_distance' ])
 
     for i in range(num_agents):
         for j in range(num_agents):
@@ -422,15 +425,26 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
                 else:
                     interaction = (start_path_sharing_frame_difference<=start_path_sharing_frame_difference_theshold)*onpath_frames #*agent1_onpath.any()*agent2_onpath.any()
 
+                path_sharing_bool = len(onpath_frames) > 2 and onpath_frames.argmax() > 0
 
-                pathcrossing_interaction = len(interaction) > 2 and interaction.argmax() > 0
-                if pathcrossing_interaction:
-                    path_intersection_bool[i,j] = True
+                if inframes.max(): # at least one common frame
                     common_start_frame = pred_frames[inframes].min()
                     common_end_frame = pred_frames[inframes].max()
-                    df_modes.loc[len(df_modes.index)] = [agent1_id, agent2_id, num_agents, common_start_frame, common_end_frame]
 
-                
+                    if (common_end_frame - common_start_frame + 1) >= min_common_frames: # +1, because e.g. 3-1 = 2, while 3 common frames
+
+                        pathcrossing_interaction = len(interaction) > 2 and interaction.argmax() > 0
+                        if pathcrossing_interaction:
+                            path_intersection_bool[i,j] = True
+
+                        
+                        if not path_sharing_bool:
+                            start_path_sharing_frame_difference = None 
+
+                        df_modes.loc[len(df_modes.index)] = [agent1_id, agent2_id, num_agents, common_start_frame, common_end_frame, 
+                                                        pathcrossing_interaction, path_sharing_bool, start_path_sharing_frame_difference, real_time_closest_distance]
+
+                    
 
 
     # return motion tensor shape with pred_frames. check for each overlapping frame, if it is a common waypoint@
