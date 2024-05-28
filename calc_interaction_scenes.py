@@ -40,7 +40,7 @@ log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 save_interaction_maps = True
 # interaction_maps_scenes = ['scene-0103', 'scene-0035', 'scene-0099', 'scene-0108', 'scene-0626', 'scene-0523'] # list of scenenes to save; choose three scenarios
-interaction_maps_scenes = ['scene-0344', 'scene-0795'] # list of scenenes to save; choose three scenarios
+interaction_maps_scenes = ['scene-0519'] # list of scenenes to save; choose three scenarios
 
 split = 'val'
 use_distance_criterion = False
