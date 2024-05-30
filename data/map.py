@@ -733,6 +733,8 @@ class GeometricMap(Map):
             'N_feasible_rollouts': N_feasible_rollouts,
             'h_final': h_final,
             'Npred_frames': Npred_frames, 
+            'h_angle_gt': angle_diff_gt,
+            
         }
         
         curr_motion_pair = pre_motion_pair[:,[-1],:]

@@ -52,12 +52,13 @@ split = 'val'
 save_pred_imgs_path = f'pred_imgs/{MODEL}_{split}_{H_PRED}f'
 mkdir_if_missing(save_pred_imgs_path)
 mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f.csv'
+mode_metrics_data_path = f'mode_metric_results/interaction_mode_metrics_data_{MODEL}_{split}_Tpred_{H_PRED}f.csv'
 
 plot_mode_overview = False
 plot_all_modes = False
 plot_all_scenes = False
 
-save_modes_plots = True
+save_modes_plots = False
 save_modes_csv = True
 
 focus_scene_bool = False
@@ -95,6 +96,7 @@ def get_model_prediction_af(data, sample_k):
 df_interactions_in = pd.read_csv(interaction_scenes_input) # input
 df_interactions_in = df_interactions_in[df_interactions_in.interaction_bool] # new format contains all possible interactions --> filter on interaction bool
 df_interactions_out = df_interactions_in.copy() # save output in similar df
+dfs_data = []
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
@@ -230,6 +232,24 @@ for idx, row in df_interactions_in.iterrows():
                     df_modes_pair_filt = df_modes_pair_filt[~df_modes_pair_filt['h_final']] # only look at predictions before the homotoyp class is inevitable
                     df_modes_pair_filt = df_modes_pair_filt.tail(H_PRED) # limit to number of prediciton frames
                     # df_modes_pair_filt[df_modes_pair_filt.keys()[[0,1,2,3,4,5,6,7,10]]]
+
+                    # make new df and store: correct, covered, collapse, v1, h1, v2, h2, dv, dh, frame
+                    for key, value in df_interactions_in.loc[idx].items():
+                        df_modes_pair_filt[key] = value                        
+
+                    # first filter agent dfs on frame and id
+                    df_agent1 = df_scene[(df_scene.agent_id == str(df_interactions_in.loc[idx, 'agent1']))*(df_scene.frame.isin(list(df_modes_pair_filt.frame.values)))]
+                    df_agent2 = df_scene[(df_scene.agent_id == str(df_interactions_in.loc[idx, 'agent2']))*(df_scene.frame.isin(list(df_modes_pair_filt.frame.values)))]
+                    
+                    # assign data:
+                    df_modes_pair_filt['v1'] = df_agent1.v.values
+                    df_modes_pair_filt['heading1'] = df_agent1.heading.values
+                    df_modes_pair_filt['v2'] = df_agent2.v.values
+                    df_modes_pair_filt['heading2'] = df_agent2.heading.values
+
+                    dfs_data.append(df_modes_pair_filt)
+
+
                     # calc metrics:
                     if len(df_modes_pair_filt) > 0:
                         prediction_consistentcy = check_consistency(df_modes_pair_filt['ml_mode'])
@@ -270,6 +290,7 @@ for idx, row in df_interactions_in.iterrows():
 # save df
 if save_modes_csv:
     df_interactions_out.to_csv(mode_metrics_path, index = False)
+    pd.concat(dfs_data,ignore_index = True).to_csv(mode_metrics_data_path, index = False)
 
 end_time = time.time()
 execution_time = end_time - start_time
