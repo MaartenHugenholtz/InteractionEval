@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 import plotly.io as pio
 
 Hpred_time = 6 # TIME NOT FRAMES!
+K_Modes = 10
 
 save_plot = True
 save_path = f'mode_metric_results/mode_metrics_{Hpred_time}s.png'
@@ -20,8 +21,8 @@ if Hpred_time == 6: # time not frames, so 6s == 12f
            'Oracle',
            'CV model',
            ]
-    models_result_paths = ['mode_metric_results/interaction_mode_metrics_AF_val_Tpred_12f.csv',
-                        'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_12f.csv',
+    models_result_paths = [f'mode_metric_results/interaction_mode_metrics_AF_val_Tpred_12f_{K_Modes}samples.csv',
+                        f'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_12f_{K_Modes}samples.csv',
                         'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_12f.csv',
                         ]
 elif Hpred_time ==3: # time not frames, so 3s == 6f
@@ -31,8 +32,8 @@ elif Hpred_time ==3: # time not frames, so 3s == 6f
            'CV model',
            'CTT'
            ]
-    models_result_paths = ['mode_metric_results/interaction_mode_metrics_AF_val_Tpred_6f.csv',
-                        'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_6f.csv',
+    models_result_paths = [f'mode_metric_results/interaction_mode_metrics_AF_val_Tpred_6f_{K_Modes}samples.csv',
+                        f'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_6f_{K_Modes}samples.csv',
                         'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_6f.csv',
                         'mode_metric_results/interaction_mode_metrics_CTT_val_Tpred_6f.csv',
                         ]

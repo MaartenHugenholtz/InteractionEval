@@ -13,8 +13,10 @@ map_version                  : 0.1
 
 past_frames                  : 4
 future_frames                : 12
-min_past_frames              : 2
-min_future_frames            : 12
+# min_past_frames              : 4 
+# min_future_frames            : 12 
+min_past_frames              : 2 
+min_future_frames            : 1
 
 traj_scale                   : 20
 motion_dim                   : 2

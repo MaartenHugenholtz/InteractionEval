@@ -45,6 +45,7 @@ def calculate_percentage(df, x_axis_var, bins=None):
     return percentage_df_correct, percentage_df_covered, percentage_df_collapse
 
 Hpred_time = 6  # TIME NOT FRAMES!
+K_Modes = 5
 
 save_plot = True
 save_path = f'mode_metric_results/mode_metrics_data_{Hpred_time}s.png'
@@ -52,8 +53,8 @@ save_path = f'mode_metric_results/mode_metrics_data_{Hpred_time}s.png'
 Title = f'Model prediction results @ {Hpred_time}s'
 
 # Load data
-df_af = pd.read_csv(f'mode_metric_results/interaction_mode_metrics_data_AF_val_Tpred_{2*Hpred_time}f.csv')
-df_oracle = pd.read_csv(f'mode_metric_results/interaction_mode_metrics_data_oracle_val_Tpred_{2*Hpred_time}f.csv')
+df_af = pd.read_csv(f'mode_metric_results/interaction_mode_metrics_data_AF_val_Tpred_{2*Hpred_time}f_{K_Modes}samples.csv')
+df_oracle = pd.read_csv(f'mode_metric_results/interaction_mode_metrics_data_oracle_val_Tpred_{2*Hpred_time}f_{K_Modes}samples.csv')
 df_cv = pd.read_csv(f'mode_metric_results/interaction_mode_metrics_data_cv_val_Tpred_{2*Hpred_time}f.csv')
 if Hpred_time == 3:
     df_ctt = pd.read_csv(f'mode_metric_results/interaction_mode_metrics_data_CTT_val_Tpred_{2*Hpred_time}f.csv')

@@ -30,7 +30,12 @@ start_time = time.time()
 
 
 """ MODEL """
-cfg = Config('nuscenes_5sample_agentformer' )
+K_Modes = 5
+if K_Modes == 5:
+    cfg = Config('nuscenes_5sample_agentformer' )
+else:
+    cfg = Config('nuscenes_10sample_agentformer' )
+
 ############################################
 H_PRED = 12 # frames (at 2 Hz)
 cfg.future_frames  = H_PRED  # overwrite H_pred in config!
@@ -49,16 +54,16 @@ else:
 interaction_scenes_input = 'interaction_scenes/interaction_metrics_val_all.csv'
 
 split = 'val'
-save_pred_imgs_path = f'pred_imgs/{MODEL}_{split}_{H_PRED}f'
+save_pred_imgs_path = f'pred_imgs/{MODEL}_{split}_{H_PRED}f_{K_Modes}samples'
 mkdir_if_missing(save_pred_imgs_path)
-mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f.csv'
-mode_metrics_data_path = f'mode_metric_results/interaction_mode_metrics_data_{MODEL}_{split}_Tpred_{H_PRED}f.csv'
+mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
+mode_metrics_data_path = f'mode_metric_results/interaction_mode_metrics_data_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
 
 plot_mode_overview = False
 plot_all_modes = False
 plot_all_scenes = False
 
-save_modes_plots = False
+save_modes_plots = True
 save_modes_csv = True
 
 focus_scene_bool = False
@@ -82,7 +87,7 @@ print_log(f'loading model from checkpoint: {cp_path}', log, display=True)
 model_cp = torch.load(cp_path, map_location='cpu')
 model.load_state_dict(model_cp['model_dict'], strict=False)
 
-def get_model_prediction_af(data, sample_k):
+def get_model_prediction_af(data, sample_k = K_Modes):
     model.set_data(data)
     recon_motion_3D, _ = model.inference(mode='recon', sample_num=sample_k)
     sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
