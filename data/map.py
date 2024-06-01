@@ -653,7 +653,8 @@ class GeometricMap(Map):
         return fig, mode_dict
 
 
-    def visualize_interactionpair_splitplot(self, data, prediction, rollout, rollout_collisions, agent_pair):
+    def visualize_interactionpair_splitplot(self, data, prediction, rollout, rollout_collisions, agent_pair,
+                                            plot_square = True):
         """
         Plots GT trajectories (full)
         And predictions for all agents (grouped per scene prediction)
@@ -859,10 +860,25 @@ class GeometricMap(Map):
         fig.update_layout(
             title=dict(text = data['seq'] + ', frame ' + str(data['frame']) + '-' + str(Npred_frames + data['frame'])),
         )
+        
 
-        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin], visible = False, scaleanchor="y", scaleratio=1)
-        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin], visible = False, scaleanchor="x", scaleratio=1) # reveresed because image
+        if plot_square:
+            # Calculate the range for both axes
+            x_range = all_x.max() - all_x.min()
+            y_range = all_y.max() - all_y.min()
 
+            # Determine the maximum range
+            max_range = max(x_range, y_range)
+            extra_margin_x = (max_range - x_range)/2
+            extra_margin_y = (max_range - y_range)/2
+        else:
+            extra_margin_x = 0
+            extra_margin_y = 0
+
+
+
+        fig.update_xaxes(range=[all_x.min() - margin - extra_margin_x, all_x.max() + margin + extra_margin_x], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[all_y.max() + margin + extra_margin_y, all_y.min() - margin - extra_margin_y], visible = False, scaleanchor="x", scaleratio=1) #        
         fig.update_layout(legend=dict(
                 orientation="h"))
 

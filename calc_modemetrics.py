@@ -39,9 +39,9 @@ else:
 ############################################
 H_PRED = 12 # frames (at 2 Hz)
 cfg.future_frames  = H_PRED  # overwrite H_pred in config!
-MODEL = 'AF'
+# MODEL = 'AF'
 # MODEL = 'CTT'
-# MODEL = 'cv'
+MODEL = 'cv'
 # MODEL = 'oracle'
 
 # only used for oracle/cv
@@ -281,7 +281,8 @@ for idx, row in df_interactions_in.iterrows():
                         if plot_mode_overview:
                             fig.show()
                         if save_modes_plots:
-                            pio.write_image(fig, save_pred_imgs_path + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}.png',width=1200, height=1000)
+                            fig.update_layout(margin=dict(l=0, r=0, t=100, b=0))
+                            pio.write_image(fig, save_pred_imgs_path + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}.png',width=1200, height=1200/2.4)
                     else:
                         raise ValueError('prediction length too short for mode evaluation')
                         # print('prediction length too short for mode evaluation')
