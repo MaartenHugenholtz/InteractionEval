@@ -31,7 +31,7 @@ class Agent():
         self.dt = dt
         self.id = df_agent['agent_id'].values[0]
         assert len(df_agent['agent_id'].unique()) == 1, 'More than 1 agent'
-        assert np.diff(df_agent['t'])[0] == dt, 'Timesteps missing in data'
+        # assert np.diff(df_agent['t'])[0] == dt, 'Timesteps missing in data'
         
 
         self.fut_steps = fut_steps

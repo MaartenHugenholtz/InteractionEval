@@ -11,10 +11,10 @@ from utils.utils import print_log, AverageMeter, isfile, print_log, AverageMeter
 def compute_ADE(pred_arr, gt_arr):
     ade = 0.0
     for pred, gt in zip(pred_arr, gt_arr):
-        diff = pred - np.expand_dims(gt, axis=0)        # samples x frames x 2
-        dist = np.linalg.norm(diff, axis=-1)            # samples x frames
-        dist = dist.mean(axis=-1)                       # samples
-        ade += dist.min(axis=0)                         # (1, )
+        diff = pred[0,...] - gt                         # frames x 2
+        dist = np.linalg.norm(diff, axis=-1)            # frames
+        dist = dist.mean(axis=-1)                       # (1, )
+        ade += dist                                     # (1, )
     ade /= len(pred_arr)
     return ade
 
@@ -22,12 +22,90 @@ def compute_ADE(pred_arr, gt_arr):
 def compute_FDE(pred_arr, gt_arr):
     fde = 0.0
     for pred, gt in zip(pred_arr, gt_arr):
-        diff = pred - np.expand_dims(gt, axis=0)        # samples x frames x 2
-        dist = np.linalg.norm(diff, axis=-1)            # samples x frames
-        dist = dist[..., -1]                            # samples 
-        fde += dist.min(axis=0)                         # (1, )
+        diff = pred[0,...] - gt                         # frames x 2
+        dist = np.linalg.norm(diff, axis=-1)            # frames
+        dist = dist[-1]                                 # (1, )
+        fde += dist                                     # (1, )
     fde /= len(pred_arr)
     return fde
+
+
+# def compute_minADE(pred_arr, gt_arr):
+#     ade = 0.0
+#     for pred, gt in zip(pred_arr, gt_arr):
+#         diff = pred - np.expand_dims(gt, axis=0)        # samples x frames x 2
+#         dist = np.linalg.norm(diff, axis=-1)            # samples x frames
+#         dist = dist.mean(axis=-1)                       # samples
+#         ade += dist.min(axis=0)                         # (1, )
+#     ade /= len(pred_arr)
+#     return ade
+
+
+# def compute_minFDE(pred_arr, gt_arr):
+#     fde = 0.0
+#     for pred, gt in zip(pred_arr, gt_arr):
+#         diff = pred - np.expand_dims(gt, axis=0)        # samples x frames x 2
+#         dist = np.linalg.norm(diff, axis=-1)            # samples x frames
+#         dist = dist[..., -1]                            # samples 
+#         fde += dist.min(axis=0)                         # (1, )
+#     fde /= len(pred_arr)
+#     return fde
+
+def compute_minADE(pred_arr, gt_arr):
+    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+
+    diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
+    dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
+
+    average_dist_matrix = dist_matrix.mean(axis = -1)       # agents x samples
+    ADE_modes = average_dist_matrix.min(axis = 1)           # samples
+    JointMinADE = ADE_modes.mean(axis = 0)                  # (1, )
+
+    return JointMinADE
+
+
+def compute_minFDE(pred_arr, gt_arr):
+    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+
+    diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
+    dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
+
+    final_dist_matrix = dist_matrix[...,-1]                 # agents x samples
+    FDE_modes = final_dist_matrix.min(axis = 1)             # samples
+    JointMinFDE = FDE_modes.mean(axis = 0)                  # (1, )
+
+    return JointMinFDE
+
+def compute_JointminADE(pred_arr, gt_arr):
+    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+
+    diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
+    dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
+
+    # first calculate  mean error over agents, than min over modalities for Joint metrics
+    average_dist_matrix = dist_matrix.mean(axis = -1)       # agents x samples
+    ADE_modes = average_dist_matrix.mean(axis = 0)          # samples
+    JointMinADE = ADE_modes.min(axis = 0)                   # (1, )
+
+    return JointMinADE
+
+
+def compute_JointminFDE(pred_arr, gt_arr):
+    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+
+    diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
+    dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
+
+    # first calculate  mean error over agents, than min over modalities for Joint metrics
+    final_dist_matrix = dist_matrix[...,-1]                 # agents x samples
+    FDE_modes = final_dist_matrix.mean(axis = 0)            # samples
+    JointMinFDE = FDE_modes.min(axis = 0)                   # (1, )
+
+    return JointMinFDE
 
 
 def align_gt(pred, gt):
@@ -74,7 +152,11 @@ if __name__ == '__main__':
 
     stats_func = {
         'ADE': compute_ADE,
-        'FDE': compute_FDE
+        'FDE': compute_FDE,
+        'minADE': compute_minADE,
+        'minFDE': compute_minFDE,
+        'JointminADE': compute_JointminADE,
+        'JointminFDE': compute_JointminFDE
     }
 
     stats_meter = {x: AverageMeter() for x in stats_func.keys()}

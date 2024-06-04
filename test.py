@@ -11,14 +11,24 @@ from utils.torch import *
 from utils.config import Config
 from model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
+from models.ctt_model import get_model_prediction as get_model_prediction_ctt
+from models.cv_model import get_model_prediction as get_model_prediction_cv
+from models.oracle_model import get_model_prediction as get_model_prediction_oracle
 
-
-def get_model_prediction(data, sample_k):
+def get_model_prediction_af(data, sample_k):
     model.set_data(data)
     recon_motion_3D, _ = model.inference(mode='recon', sample_num=sample_k)
     sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
     sample_motion_3D = sample_motion_3D.transpose(0, 1).contiguous()
     return recon_motion_3D, sample_motion_3D
+
+
+
+# set Model here !
+get_model_prediction = get_model_prediction_oracle
+model_name = 'Oracle' 
+
+
 
 def save_prediction(pred, data, suffix, save_dir):
     pred_num = 0
@@ -67,7 +77,12 @@ def test_model(generator, save_dir, cfg):
         gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
         with torch.no_grad():
             recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
-        recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+
+        if model_name == 'AF': # only scale for AF
+            recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+
+        if len(recon_motion_3D.shape) > 3: # should be agents x frames x 2
+            recon_motion_3D = recon_motion_3D.squeeze(0)
 
         """save samples"""
         recon_dir = os.path.join(save_dir, 'recon'); mkdir_if_missing(recon_dir)
@@ -128,6 +143,9 @@ if __name__ == '__main__':
 
         """ save results and compute metrics """
         data_splits = [args.data_eval]
+
+        # set new results path
+        cfg.result_dir = f'results/{model_name}'
 
         for split in data_splits:  
             generator = data_generator(cfg, log, split=split, phase='testing')

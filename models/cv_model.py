@@ -2,8 +2,22 @@ import numpy as np
 import torch
 import itertools
 from eval_utils import calc_collision_matrix, calc_travelled_distance
+from agent_class import Agent
 
-def get_model_prediction(data, sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = True):
+def get_model_prediction(data, sample_k, agent_dict = None, path_intersection_bool_frame = None, use_gt_path = False,
+                         H_PRED = 12):
+
+    if agent_dict is None: # model prediction case, build agent dict from data
+        gt = data['gt_scene']
+        df_scene = Agent.process_data(gt)
+        vmax_scene = df_scene.v.max()
+        
+        agent_dict = {}
+        agents_scene = list(df_scene.agent_id.unique()) # definitive order for agent ids in all tensors
+        for agent in agents_scene:
+            df_agent = df_scene[df_scene.agent_id == agent]
+            agent_class = Agent(df_agent, v_max = vmax_scene, fut_steps=H_PRED) # impose vmax based on gt scene velocities
+            agent_dict.update({agent: agent_class})
 
     frame_curr = data['frame']
     futures_constant_v = []
