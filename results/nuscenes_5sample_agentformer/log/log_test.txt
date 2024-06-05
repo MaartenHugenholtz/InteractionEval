@@ -142,3 +142,6 @@ loading sequence scene-1073 ...
 total num samples: 4838
 ------------------------------ done --------------------------------
 
+
+
+ total_num_pred: 1821

@@ -25,8 +25,8 @@ def get_model_prediction_af(data, sample_k):
 
 
 # set Model here !
-get_model_prediction = get_model_prediction_oracle
-model_name = 'Oracle' 
+get_model_prediction = get_model_prediction_af
+MODEL_NAME = 'AF' 
 
 
 
@@ -40,8 +40,9 @@ def save_prediction(pred, data, suffix, save_dir):
         if pred_mask is not None and pred_mask[i] != 1.0:
             continue
 
+        future_frames = 6 if MODEL_NAME == 'CTT' else cfg.future_frames
         """future frames"""
-        for j in range(cfg.future_frames):
+        for j in range(future_frames):
             cur_data = fut_data[j]
             if len(cur_data) > 0 and identity in cur_data[:, 1]:
                 data = cur_data[cur_data[:, 1] == identity].squeeze()
@@ -74,25 +75,30 @@ def test_model(generator, save_dir, cfg):
         sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
         sys.stdout.flush()
 
-        gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
-        with torch.no_grad():
-            recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
+        try:
+            gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
+            with torch.no_grad():
+                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
 
-        if model_name == 'AF': # only scale for AF
-            recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+            if MODEL_NAME == 'AF': # only scale for AF
+                recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
 
-        if len(recon_motion_3D.shape) > 3: # should be agents x frames x 2
-            recon_motion_3D = recon_motion_3D.squeeze(0)
+            if len(recon_motion_3D.shape) > 3: # should be agents x frames x 2
+                recon_motion_3D = recon_motion_3D.squeeze(0)
 
-        """save samples"""
-        recon_dir = os.path.join(save_dir, 'recon'); mkdir_if_missing(recon_dir)
-        sample_dir = os.path.join(save_dir, 'samples'); mkdir_if_missing(sample_dir)
-        gt_dir = os.path.join(save_dir, 'gt'); mkdir_if_missing(gt_dir)
-        for i in range(sample_motion_3D.shape[0]):
-            save_prediction(sample_motion_3D[i], data, f'/sample_{i:03d}', sample_dir)
-        save_prediction(recon_motion_3D, data, '', recon_dir)        # save recon
-        num_pred = save_prediction(gt_motion_3D, data, '', gt_dir)              # save gt
-        total_num_pred += num_pred
+            """save samples"""
+            recon_dir = os.path.join(save_dir, 'recon'); mkdir_if_missing(recon_dir)
+            sample_dir = os.path.join(save_dir, 'samples'); mkdir_if_missing(sample_dir)
+            gt_dir = os.path.join(save_dir, 'gt'); mkdir_if_missing(gt_dir)
+            for i in range(sample_motion_3D.shape[0]):
+                save_prediction(sample_motion_3D[i], data, f'/sample_{i:03d}', sample_dir)
+            save_prediction(recon_motion_3D, data, '', recon_dir)        # save recon
+            num_pred = save_prediction(gt_motion_3D, data, '', gt_dir)              # save gt
+            total_num_pred += num_pred
+        except FileNotFoundError:
+            pass
+        except ValueError:
+            pass
 
     print_log(f'\n\n total_num_pred: {total_num_pred}', log)
     if cfg.dataset == 'nuscenes_pred':
@@ -145,7 +151,7 @@ if __name__ == '__main__':
         data_splits = [args.data_eval]
 
         # set new results path
-        cfg.result_dir = f'results/{model_name}'
+        cfg.result_dir = f'results/{MODEL_NAME}'
 
         for split in data_splits:  
             generator = data_generator(cfg, log, split=split, phase='testing')

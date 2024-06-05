@@ -6,54 +6,38 @@ from data.ethucy_split import get_ethucy_split
 from utils.utils import print_log, AverageMeter, isfile, print_log, AverageMeter, isfile, isfolder, find_unique_common_from_lists, load_list_from_folder, load_txt_file
 
 
+H_PRED = 12 # frames 
+
 """ Metrics """
 
 def compute_ADE(pred_arr, gt_arr):
-    ade = 0.0
-    for pred, gt in zip(pred_arr, gt_arr):
-        diff = pred[0,...] - gt                         # frames x 2
-        dist = np.linalg.norm(diff, axis=-1)            # frames
-        dist = dist.mean(axis=-1)                       # (1, )
-        ade += dist                                     # (1, )
-    ade /= len(pred_arr)
-    return ade
+    pred_matrix = np.stack(pred_arr)[:,0,:H_PRED,:]         # agents x  frames x 2
+    gt_matrix = np.stack(gt_arr)[:,:H_PRED,:]               # agents x  frames x 2
+
+    diff_matrix = pred_matrix - gt_matrix                   # agents x  frames x 2
+    dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x  frames
+
+    average_dist_matrix = dist_matrix.mean(axis = -1)       # agents 
+    ADE_agents = average_dist_matrix.mean(axis = 0)         # (1,)
+
+    return ADE_agents
 
 
 def compute_FDE(pred_arr, gt_arr):
-    fde = 0.0
-    for pred, gt in zip(pred_arr, gt_arr):
-        diff = pred[0,...] - gt                         # frames x 2
-        dist = np.linalg.norm(diff, axis=-1)            # frames
-        dist = dist[-1]                                 # (1, )
-        fde += dist                                     # (1, )
-    fde /= len(pred_arr)
-    return fde
+    pred_matrix = np.stack(pred_arr)[:,0,:H_PRED,:]         # agents x  frames x 2
+    gt_matrix = np.stack(gt_arr)[:,:H_PRED,:]               # agents x  frames x 2
 
+    diff_matrix = pred_matrix - gt_matrix                   # agents x  frames x 2
+    dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x  frames
 
-# def compute_minADE(pred_arr, gt_arr):
-#     ade = 0.0
-#     for pred, gt in zip(pred_arr, gt_arr):
-#         diff = pred - np.expand_dims(gt, axis=0)        # samples x frames x 2
-#         dist = np.linalg.norm(diff, axis=-1)            # samples x frames
-#         dist = dist.mean(axis=-1)                       # samples
-#         ade += dist.min(axis=0)                         # (1, )
-#     ade /= len(pred_arr)
-#     return ade
+    final_dist_matrix = dist_matrix[:,-1]                   # agents 
+    FDE_agents = final_dist_matrix.mean(axis = 0)           # (1,)
 
-
-# def compute_minFDE(pred_arr, gt_arr):
-#     fde = 0.0
-#     for pred, gt in zip(pred_arr, gt_arr):
-#         diff = pred - np.expand_dims(gt, axis=0)        # samples x frames x 2
-#         dist = np.linalg.norm(diff, axis=-1)            # samples x frames
-#         dist = dist[..., -1]                            # samples 
-#         fde += dist.min(axis=0)                         # (1, )
-#     fde /= len(pred_arr)
-#     return fde
+    return FDE_agents
 
 def compute_minADE(pred_arr, gt_arr):
-    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
-    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+    pred_matrix = np.stack(pred_arr)[...,:H_PRED,:]                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)[...,:H_PRED,:]  # agents x 1 x frames x 2
 
     diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
     dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
@@ -66,8 +50,8 @@ def compute_minADE(pred_arr, gt_arr):
 
 
 def compute_minFDE(pred_arr, gt_arr):
-    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
-    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+    pred_matrix = np.stack(pred_arr)[...,:H_PRED,:]                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)[...,:H_PRED,:]  # agents x 1 x frames x 2
 
     diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
     dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
@@ -79,8 +63,8 @@ def compute_minFDE(pred_arr, gt_arr):
     return JointMinFDE
 
 def compute_JointminADE(pred_arr, gt_arr):
-    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
-    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+    pred_matrix = np.stack(pred_arr)[...,:H_PRED,:]                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)[...,:H_PRED,:]  # agents x 1 x frames x 2
 
     diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
     dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
@@ -94,8 +78,8 @@ def compute_JointminADE(pred_arr, gt_arr):
 
 
 def compute_JointminFDE(pred_arr, gt_arr):
-    pred_matrix = np.stack(pred_arr)                        # agents x samples x frames x 2
-    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)  # agents x 1 x frames x 2
+    pred_matrix = np.stack(pred_arr)[...,:H_PRED,:]                        # agents x samples x frames x 2
+    gt_matrix = np.expand_dims(np.stack(gt_arr), axis = 1)[...,:H_PRED,:]  # agents x 1 x frames x 2
 
     diff_matrix = pred_matrix - gt_matrix                   # agents x samples x frames x 2
     dist_matrix = np.linalg.norm(diff_matrix, axis=-1)      # agents x samples x frames
