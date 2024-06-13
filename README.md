@@ -42,4 +42,5 @@ We provide the following evaluation scripts:
 Next to these scripts, we provide various useful classes and functions for evaluating interaction modes:
 - [data/map.py](data/map.py) is adopted form AgentFormers implementation, but extended with various visualization functions.
 - [agent_class.py](agent_class.py) can be used to perform constant velocity, acceleration, or deceleration roll-outs for an agent.
-
+- [eval_utils.py](eval_utils.py) contains functions to combine roll-outs, check collisions and more. 
+- [utils/homotopy.py](utils/homotopy.py) is taken from [CTT](https://github.com/NVlabs/diffstack/tree/CTT_release) and contains the functions for calculating the homotopy angles and classes
