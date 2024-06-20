@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from agent_class import Agent
 import time
+import plotly.io as pio
 
 start_time = time.time()
 
@@ -56,12 +57,19 @@ def get_model_prediction(data, sample_k):
 """ Get predictions and compute metrics """
 
 split = 'val'
-focus_scene = 'scene-0103'
-
+focus_scene = 'scene-0108'
+focus_frame = 4
+# focus_scene = 'scene-0626'
+# focus_frame = 19
 
 generator = data_generator(cfg, log, split=split, phase='testing')
 scene_preprocessors = generator.sequence
 df_modemetrics = pd.DataFrame()
+
+""""
+todos
+- make option to show/hide map, and history, future 
+"""
 
 for scene in scene_preprocessors:
 
@@ -70,23 +78,58 @@ for scene in scene_preprocessors:
         gt = scene.gt
         pred_frames = scene.pred_frames
 
+        frame = focus_frame
+        # frame corresponds to the current timestep, i.e. the last of pre_motion
+        data = scene(frame)
+        if data is None:
+            print('Frame skipped in loop')
+            continue
 
-        for frame_idx, frame in enumerate(pred_frames):
-            # frame corresponds to the current timestep, i.e. the last of pre_motion
-            data = scene(frame)
-            if data is None:
-                print('Frame skipped in loop')
-                continue
+        seq_name, frame = data['seq'], data['frame']
+        frame = int(frame)
+        sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
+        sys.stdout.flush()
 
-            seq_name, frame = data['seq'], data['frame']
-            frame = int(frame)
-            sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))  
-            sys.stdout.flush()
+        with torch.no_grad():
+            recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
+        recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
 
-            with torch.no_grad():
-                recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
-            recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
+        base_width = 500
 
-            data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
+        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_map = False, show_pred = False, show_hist = False, show_fut = False)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+        fig_width = fig.layout.xaxis.range[1] - fig.layout.xaxis.range[0]
+        fig_height = fig.layout.yaxis.range[0] - fig.layout.yaxis.range[1]
+        pio.write_image(fig, 'ppt_vis_example/example_nomap_nohist.png', width= base_width, height=base_width*fig_height/fig_width)
 
+        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_map = True, show_pred = False, show_hist = True, show_fut = False)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+        fig_width = fig.layout.xaxis.range[1] - fig.layout.xaxis.range[0]
+        fig_height = fig.layout.yaxis.range[0] - fig.layout.yaxis.range[1]
+        pio.write_image(fig, 'ppt_vis_example/example_map_hist.png', width= base_width, height=base_width*fig_height/fig_width)
 
+        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_map = True, show_pred = True, show_hist = True, show_fut = False)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+        fig_width = fig.layout.xaxis.range[1] - fig.layout.xaxis.range[0]
+        fig_height = fig.layout.yaxis.range[0] - fig.layout.yaxis.range[1]
+        pio.write_image(fig, 'ppt_vis_example/example_pred.png', width= base_width, height=base_width*fig_height/fig_width)
+
+        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_map = True, show_pred = True, show_hist = True, show_fut = True)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+        fig_width = fig.layout.xaxis.range[1] - fig.layout.xaxis.range[0]
+        fig_height = fig.layout.yaxis.range[0] - fig.layout.yaxis.range[1]
+        pio.write_image(fig, 'ppt_vis_example/example_pred_fut.png', width= base_width, height=base_width*fig_height/fig_width)
+
+        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_map = True, show_pred = False, show_hist = False, show_fut = True)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+        fig_width = fig.layout.xaxis.range[1] - fig.layout.xaxis.range[0]
+        fig_height = fig.layout.yaxis.range[0] - fig.layout.yaxis.range[1]
+        pio.write_image(fig, 'ppt_vis_example/example_fut_only.png', width= base_width, height=base_width*fig_height/fig_width)
+
+        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_map = True, show_pred = True, show_hist = False, show_fut = False)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+        fig_width = fig.layout.xaxis.range[1] - fig.layout.xaxis.range[0]
+        fig_height = fig.layout.yaxis.range[0] - fig.layout.yaxis.range[1]
+        pio.write_image(fig, 'ppt_vis_example/example_pred_only.png', width= base_width, height=base_width*fig_height/fig_width)
+
+print()

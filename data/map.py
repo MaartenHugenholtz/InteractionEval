@@ -362,7 +362,7 @@ class GeometricMap(Map):
         # fig.show()
         return fig
 
-    def visualize_trajs(self, data, prediction):
+    def visualize_trajs(self, data, prediction, show_map = True, show_hist= True, show_fut = True, show_pred = True, show_fig = True):
         """
         Plots GT trajectories (full)
         And predictions for all agents (grouped per scene prediction)
@@ -371,7 +371,12 @@ class GeometricMap(Map):
         fut_motion = np.stack(data['fut_motion_3D']) * data['traj_scale']
         all_motion = np.concatenate((pre_motion, fut_motion), axis=1)
         motion_map = self.to_map_points(all_motion)
-        pred_map =self.to_map_points(prediction)
+        motion_pre = self.to_map_points(pre_motion)
+        H_steps = pre_motion.shape[1]
+        motion_fut = self.to_map_points(all_motion[:,H_steps-1:,:])
+        curr_t = torch.from_numpy(pre_motion[:,[-1],:]).unsqueeze(0).repeat(prediction.shape[0], 1, 1, 1)
+        prediction_t = torch.cat((curr_t, prediction), 2)
+        pred_map =self.to_map_points(prediction_t)
 
         # index of current timestamp:
         idx_cur = pre_motion.shape[1] - 1
@@ -392,7 +397,13 @@ class GeometricMap(Map):
         # Create a Plotly figure
         fig = go.Figure()
 
-        fig = px.imshow(img)
+        if show_map:
+            fig = px.imshow(img)
+        else:
+            img_blank = img.copy()
+            img_blank.fill(255)
+            fig = px.imshow(img_blank)
+
 
         # colors agents 
 
@@ -401,13 +412,27 @@ class GeometricMap(Map):
         # Plot the GT trajectories and predictions
         for agent_idx, agent_id in enumerate(agent_ids):
             fig.add_trace(go.Scatter(
-                x=motion_map[agent_idx,:,1],
-                y=motion_map[agent_idx,:,0],  # x and y reversed for image
+                x=motion_pre[agent_idx,:,1],
+                y=motion_pre[agent_idx,:,0],  # x and y reversed for image
                 mode='lines+markers',
                 name = f'gt_agent_{agent_id}',
                 # showlegend= (agent_idx==0),
-                legendgroup='gt',
-                legendgrouptitle_text='gt',
+                legendgroup='gt_pre',
+                legendgrouptitle_text='gt_pre',
+                visible =  True if show_hist else 'legendonly',
+                line=dict(color=colors[agent_idx],
+                )
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=motion_fut[agent_idx,:,1],
+                y=motion_fut[agent_idx,:,0],  # x and y reversed for image
+                mode='lines+markers',
+                name = f'gt_agent_{agent_id}',
+                # showlegend= (agent_idx==0),
+                legendgroup='gt_fut',
+                legendgrouptitle_text='gt_fut',
+                visible =True if show_fut else 'legendonly',
                 line=dict(color=colors[agent_idx])
             ))
 
@@ -421,9 +446,10 @@ class GeometricMap(Map):
                 go.Scatter(x=y_points, y=x_points, 
                            fill="toself",
                            mode = 'lines',
-                            legendgroup='gt',
+                            legendgroup='vehicle',
+                            legendgrouptitle_text='vehicle',
                             name = f'gt_agent_{agent_id}',
-                            showlegend=False,
+                            showlegend=True,
                             line=dict(color=colors[agent_idx]),
                             ))
             
@@ -437,20 +463,30 @@ class GeometricMap(Map):
                     # showlegend= (agent_idx==0),
                     legendgroup=f'pred{pred+1}',
                     legendgrouptitle_text=f'pred{pred+1}',
-                    opacity=0.5,
+                    opacity=0.3,
+                    visible = True if show_pred else 'legendonly',
                     line=dict(color=colors[agent_idx], dash='dash')
                     ))
 
 
+        margin = 10
+        # x and y indices reveresd because of motion mapping (same for plotting indices)
+        all_x = np.concatenate([motion_map[...,1].flatten(),pred_map[...,1].flatten()])
+        all_y = np.concatenate([motion_map[...,0].flatten(),pred_map[...,0].flatten()])
         # Update layout to remove axes
         fig.update_layout(
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
-            title=dict(text = data['seq'] + ', frame-' + str(data['frame'])),
+            # title=dict(text = data['seq'] + ', frame-' + str(data['frame'])),
         )
+        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin], visible = False, scaleanchor="x", scaleratio=1) #
+
 
         # Show the Plotly figure
-        fig.show()
+        if show_fig:
+            fig.show()
+        return fig
 
     def calc_pathhomotopy_pair(self, motion_agent1, motion_agent2):
         if isinstance(motion_agent1, np.ndarray):
