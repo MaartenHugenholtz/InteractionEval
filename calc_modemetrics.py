@@ -59,15 +59,15 @@ mkdir_if_missing(save_pred_imgs_path)
 mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
 mode_metrics_data_path = f'mode_metric_results/interaction_mode_metrics_data_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
 
-plot_mode_overview = True
+plot_mode_overview = False
 plot_all_modes = False
 plot_all_scenes = False
 
 save_modes_plots = True
 save_modes_csv = True
 
-focus_scene_bool = True
-scene_focus_name = 'scene-0104'
+focus_scene_bool = False
+scene_focus_name = 'scene-0103'
 
 """"""" SETUP """""""
 torch.set_default_dtype(torch.float32)

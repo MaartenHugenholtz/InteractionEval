@@ -812,6 +812,10 @@ class GeometricMap(Map):
 
         # colors agents 
         colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
+        marker_dict = {
+            'CW': 'circle',
+            'CCW': 'diamond',
+        }
 
         # Plot the GT trajectories
         for agent_idx, agent_id in enumerate(agent_ids):
@@ -821,6 +825,7 @@ class GeometricMap(Map):
                 y=motion_map[agent_idx,:,0],  # x and y reversed for image
                 mode='lines+markers',
                 name = f'agent_{int(agent_id)}',
+                marker_symbol = marker_dict[gt_class[0]],
                 # showlegend= (agent_idx==0),
                 legendgroup='gt',
                 legendgrouptitle_text=f'gt<br>h_class: {gt_class[0]}<br>',
@@ -859,6 +864,7 @@ class GeometricMap(Map):
                     y=pred_map[pred,agent_idx,:,0],  # x and y reversed for image
                     mode='lines + markers',
                     name = f'agent_{int(agent_id)}',
+                    marker_symbol = marker_dict[pred_classes[pred]],
                     # showlegend= (agent_idx==0),
                     legendgroup=f'pred{pred+1}',
                     legendgrouptitle_text=f'pred{pred+1}<br>h_class: {pred_classes[pred]}<br>',
@@ -872,7 +878,7 @@ class GeometricMap(Map):
 
         # Plot the roll-outs
         for agent_idx, agent_id in enumerate(agent_ids):
-            rollout_symbols = ['square', 'x']
+            # rollout_symbols = ['square', 'x']
             r_markersize = 6
             for r in range(rollout_map.shape[0]):
                 fig.add_trace(go.Scatter(
@@ -880,7 +886,7 @@ class GeometricMap(Map):
                     y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
                     mode='lines + markers',
                     name = f'agent_{int(agent_id)}',
-                    marker_symbol= rollout_symbols[r],
+                    marker_symbol= marker_dict[rollout_classes[r]],
                     marker_size = r_markersize,
                     # showlegend= (agent_idx==0),
                     legendgroup=f'rollout{r+1}',
