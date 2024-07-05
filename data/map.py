@@ -260,7 +260,8 @@ class GeometricMap(Map):
         y_points = [fl_corner[1], fr_corner[1], rr_corner[1], rl_corner[1], fl_corner[1]] + yc
         return x_points, y_points
     
-    def visualize_pair_gt_scene(self, df_scene, agent_pair):
+    def visualize_pair_gt_scene(self, df_scene, agent_pair, interp_factor = 10,
+                                onpath_threshold = 1.5):
         """
         Plots GT trajectories (full)
         And predictions for all agents (grouped per scene prediction)
@@ -269,16 +270,39 @@ class GeometricMap(Map):
         df_pair = df_scene[df_scene.agent_id.isin(str_list_pair)]
         df1 = df_scene[df_scene['agent_id'] == str(int(agent_pair[0]))]
         df2 = df_scene[df_scene['agent_id'] == str(int(agent_pair[1]))]
-        common_start_frame = max(df1.frame.min(), df2.frame.min())
+        common_start_frame = max(df1.frame.min(), df2.frame.min()) 
         common_end_frame = min(df1.frame.max(), df2.frame.max())
         # filter on common frames:
         df1 = df1[(df1.frame >= common_start_frame)*(df1.frame <= common_end_frame)]
         df2 = df2[(df2.frame >= common_start_frame)*(df2.frame <= common_end_frame)]
+        pred_frames = np.arange(common_start_frame, common_end_frame+1, 1)
+        pred_frames_interp = np.arange(pred_frames[0], pred_frames[-1]+1/interp_factor, 1/interp_factor)
+   
+        agent1 = torch.tensor(
+                np.stack([np.interp(pred_frames_interp, pred_frames, df1.x.values),
+                            np.interp(pred_frames_interp, pred_frames, df1.y.values)],).T
+        )
+        agent2 = torch.tensor(
+                np.stack([np.interp(pred_frames_interp, pred_frames, df2.x.values),
+                            np.interp(pred_frames_interp, pred_frames, df2.y.values)],).T
+        )
+        agent1  = agent1.unsqueeze(1) # shape = (time x 1 x 2)
+        agent2  = agent2.unsqueeze(1).permute(1, 0, 2) # shape = (1 x time x 2)
+        positions_diff = agent1 - agent2
+        squared_distances = torch.sum(positions_diff ** 2, dim=-1)  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+        distances = torch.sqrt(squared_distances).numpy() 
+        agent1_onpath = (distances.min(axis=1) < onpath_threshold)[::interp_factor]
+        agent2_onpath = (distances.min(axis=0) < onpath_threshold)[::interp_factor]
 
+
+        start_path_frame = np.maximum(agent1_onpath, agent2_onpath).argmax()
+        start_vis_frame = 0 # max(start_path_frame - 5, 0)
+
+        onpath_list = [agent1_onpath[start_vis_frame:], agent2_onpath[start_vis_frame:]]
         # get common frames and put in similar format
 
 
-        all_motion = np.stack([df1[['x', 'y']].values, df2[['x', 'y']].values]) # shape: 2 x T x 2 ?
+        all_motion = np.stack([df1[['x', 'y']].values[start_vis_frame:], df2[['x', 'y']].values[start_vis_frame:]]) # shape: 2 x T x 2 ?
         motion_map = self.to_map_points(all_motion)
 
         margin = 20
@@ -306,11 +330,13 @@ class GeometricMap(Map):
 
         # Plot the GT trajectories and predictions
         for agent_idx, agent_id in enumerate(agent_ids):
+            marker_sizes = [10 if onpath else 5 for onpath in onpath_list[agent_idx]]
             fig.add_trace(go.Scatter(
                 x=motion_map[agent_idx,:,1],
                 y=motion_map[agent_idx,:,0],  # x and y reversed for image
                 mode='lines+markers',
                 name = f'gt_agent_{agent_id}',
+                marker=dict(size=marker_sizes),
                 # showlegend= (agent_idx==0),
                 legendgroup='gt',
                 legendgrouptitle_text='gt',

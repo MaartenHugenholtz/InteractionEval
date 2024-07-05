@@ -8,6 +8,7 @@ from scipy.spatial.distance import cdist
 import math
 import torch
 from plotly.subplots import make_subplots
+import plotly.io as pio
 from torch.nn.functional import interpolate as tensor_interpolate
 
 def get_rollout_combinations(fut_mod_decel, fut_mod_accel):
@@ -450,3 +451,62 @@ def calc_path_intersections(df_scene, agents_scene, pred_frames, interp_factor =
     # return motion tensor shape with pred_frames. check for each overlapping frame, if it is a common waypoint@
     return path_intersection_bool, inframes_bool, df_modes
 
+
+def plot_D_matrix(df_scene, agent1, agent2, interp_factor = 1):
+
+    df1 = df_scene[df_scene['agent_id'] == str(int(agent1))]
+    df2 = df_scene[df_scene['agent_id'] == str(int(agent2))]
+    common_start_frame = max(df1.frame.min(), df2.frame.min())
+    common_end_frame = min(df1.frame.max(), df2.frame.max())
+    pred_frames = np.arange(common_start_frame, common_end_frame+1, 1)
+    pred_frames_interp = np.arange(pred_frames[0], pred_frames[-1]+1/interp_factor, 1/interp_factor)
+    # filter on common frames:
+    df1 = df1[(df1.frame >= common_start_frame)*(df1.frame <= common_end_frame)]
+    df2 = df2[(df2.frame >= common_start_frame)*(df2.frame <= common_end_frame)]
+
+    agent1 = torch.tensor(
+            np.stack([np.interp(pred_frames_interp, pred_frames, df1.x.values),
+                        np.interp(pred_frames_interp, pred_frames, df1.y.values)],).T
+    )
+    agent2 = torch.tensor(
+            np.stack([np.interp(pred_frames_interp, pred_frames, df2.x.values),
+                        np.interp(pred_frames_interp, pred_frames, df2.y.values)],).T
+    )
+    agent1  = agent1.unsqueeze(1) # shape = (time x 1 x 2)
+    agent2  = agent2.unsqueeze(1).permute(1, 0, 2) # shape = (1 x time x 2)
+    positions_diff = agent1 - agent2
+    squared_distances = torch.sum(positions_diff ** 2, dim=-1)  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+    distances = torch.sqrt(squared_distances).numpy()  # Shape: (num_simulations, num_agents, num_agents, timesteps)
+    # distances[distances<=1.5] = -1
+    rd_bu_colors = px.colors.diverging.RdBu
+    # deep_colors = 
+
+    # Create a custom colorscale
+    custom_colorscale = [
+        [0.0, rd_bu_colors[0]],   # Dark red for the start of the scale (for values below 1.5)
+        [0.015, rd_bu_colors[0]], # Dark red for values up to 1.5
+        [0.015, 'rgb(255,255,255)'], # White for the midpoint
+        [1.0, rd_bu_colors[-1]]   # Dark blue for the end of the scale (for values above 1.5)
+    ]
+
+    # Create the heatmap with custom colorscale
+    fig = go.Figure(data=go.Heatmap(
+        x=pred_frames_interp,
+        y=pred_frames_interp,
+        z=distances,
+        colorscale=custom_colorscale,
+        zmid=1.5,  # Midpoint value for colorscale
+        zmin=-1,   # Set minimum value for colormap
+        zmax=100   # Set maximum value for colormap
+    ))
+
+    # Update layout to make the figure square and set axis ranges
+    fig.update_layout(
+        xaxis_title=r"$t_{1}$",
+        yaxis_title=r"$t_{2}$",
+        xaxis=dict(range=[pred_frames_interp[0], pred_frames_interp[-1]]),
+        yaxis=dict(range=[pred_frames_interp[0], pred_frames_interp[-1]]),
+        width=600,  # Set the figure width
+        height=600  # Set the figure height to match the width
+    )
+    return fig

@@ -40,7 +40,7 @@ log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 save_interaction_maps = True
 # interaction_maps_scenes = ['scene-0103', 'scene-0035', 'scene-0099', 'scene-0108', 'scene-0626', 'scene-0523'] # list of scenenes to save; choose three scenarios
-interaction_maps_scenes = ['scene-0519'] # list of scenenes to save; choose three scenarios
+interaction_maps_scenes = ['scene-0795'] # list of scenenes to save; choose three scenarios
 
 split = 'val'
 use_distance_criterion = False
@@ -73,6 +73,10 @@ for scene in tqdm(scene_preprocessors):
             fig = scene_map.visualize_pair_gt_scene(df_scene, (row.agent1,row.agent2))
             fname = path + '/' + f'{scene.seq_name}_{row.agent1}_{row.agent2}.png'
             pio.write_image(fig, fname, width=600, height=600)
+
+            fig_matrix = plot_D_matrix(df_scene, row.agent1,row.agent2)
+            fname_matrix = path + '/' + f'{scene.seq_name}_{row.agent1}_{row.agent2}_Dmatrix.png'
+            pio.write_image(fig_matrix, fname_matrix, width=600, height=600)
 
 
 end_time = time.time()
