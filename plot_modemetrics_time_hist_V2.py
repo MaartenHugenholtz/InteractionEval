@@ -34,8 +34,8 @@ elif Hpred_time ==3: # time not frames, so 3s == 6f
            ]
     models_result_paths = [f'mode_metric_results/interaction_mode_metrics_AF_val_Tpred_6f_{K_Modes}samples.csv',
                         f'mode_metric_results/interaction_mode_metrics_oracle_val_Tpred_6f_{K_Modes}samples.csv',
-                        'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_6f.csv',
-                        'mode_metric_results/interaction_mode_metrics_CTT_val_Tpred_6f.csv',
+                        f'mode_metric_results/interaction_mode_metrics_cv_val_Tpred_6f_{K_Modes}samples.csv',
+                        f'mode_metric_results/interaction_mode_metrics_CTT_val_Tpred_6f_{K_Modes}samples.csv',
                         ]
 else:
     raise NameError
@@ -48,24 +48,28 @@ consistencies = []
 for model, path in zip(models, models_result_paths):
     df_temp = pd.read_csv(path).dropna()
     df_temp['model'] = model
-    df_temp['metric t2cor'] = df_temp.apply(lambda row: row['t2cor'] if row['t2cor'] < row['pred_time'] else Hpred_time, axis=1)
-    df_temp['metric t2cov'] = df_temp.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred_time, axis=1)
+
+
+    df_temp['metric t2cor'] = df_temp['t2cor']   #.apply(lambda row: row['t2cor'] if row['t2cor'] < row['pred_time'] else Hpred_time, axis=1)
+    df_temp['metric t2cov'] = df_temp['t2cov']  #.apply(lambda row: row['t2cov'] if row['t2cov'] < row['pred_time'] else Hpred_time, axis=1)
+
     dfs.append(df_temp)
 
     # calc stats
-    df_notcorrect = df_temp[df_temp['metric t2cor'] < Hpred_time]
+    df_notcorrect = df_temp[df_temp['metric t2cor'] < df_temp['pred_time']]
     df_0scor = df_temp[df_temp['metric t2cor'] ==0]
-    df_notcovered = df_temp[df_temp['metric t2cov'] < Hpred_time]
+    df_notcovered = df_temp[df_temp['metric t2cov'] < df_temp['pred_time']]
     df_0scov = df_temp[df_temp['metric t2cov'] ==0]
 
     N_interactions = len(df_temp)
+    mean_pred_time = df_temp['pred_time'].mean()
     perc_not_correct = round(100 * len(df_notcorrect) / len(df_temp),1)
     perc_correct = round(100 - perc_not_correct, 1)
-    avg_t2cor = df_notcorrect['t2cor'].mean()
+    avg_t2cor = df_temp['t2cor'].mean()
     perc_t2cor_0s = round(100*len(df_0scor)/len(df_temp), 1)
     perc_not_covered = round(100 * len(df_notcovered) / len(df_temp),1)
     perc_covered = round(100 - perc_not_covered, 1)
-    avg_t2cov = df_notcovered['t2cov'].mean()
+    avg_t2cov = df_temp['t2cov'].mean()
     perc_t2cov_0s = round(100*len(df_0scov)/len(df_temp), 1)
 
     r_pred_consistency = len(df_temp[df_temp.prediction_consistency == True]) / len(df_temp)
@@ -76,6 +80,7 @@ for model, path in zip(models, models_result_paths):
     # print stats
     print(f'MODEL: {model}')
     print(f'{N_interactions} interactions in dataset')
+    print(f"mean pred time = {mean_pred_time}s")
     print(f"{perc_not_correct}% of the intentions not correct, with {avg_t2cor}s as average time-to-correct-mode-prediction")
     print(f"{perc_t2cor_0s}% of the intentions not correctly predicted before inevitable homotopy collapse (t2cor = 0s)")
 
