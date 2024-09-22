@@ -8,19 +8,18 @@ sys.path.append(os.getcwd())
 from data.dataloader_debug import data_generator
 from utils.torch import *
 from utils.config import Config
-from model.model_lib import model_dict
+from AF_model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
-from eval_utils import *
+from utils.eval_utils import *
 from utils.homotopy import *
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
-from agent_class import Agent
+from utils.agent_class import Agent
 import time 
 from tqdm import tqdm
-from models.ctt_model import get_model_prediction as get_model_prediction_ctt
-from models.cv_model import get_model_prediction as get_model_prediction_cv
-from models.oracle_model import get_model_prediction as get_model_prediction_oracle
+from additional_models.cv_model import get_model_prediction as get_model_prediction_cv
+from additional_models.oracle_model import get_model_prediction as get_model_prediction_oracle
 import logging
 logging.basicConfig(filename='calc_modemetric.log', 
                     level = logging.DEBUG,    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', # Log message format

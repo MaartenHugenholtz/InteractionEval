@@ -10,11 +10,11 @@ from utils.torch import *
 from utils.config import Config
 from model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
-from eval_utils import *
+from utils.eval_utils import *
 from utils.homotopy import *
 import plotly.graph_objects as go
 import plotly.express as px
-from agent_class import Agent
+from utils.agent_class import Agent
 import time
 from tqdm import tqdm
 import plotly.io as pio
