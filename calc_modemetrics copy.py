@@ -37,12 +37,12 @@ else:
     cfg = Config('nuscenes_10sample_agentformer' )
 
 ############################################
-H_PRED = 12 # frames (at 2 Hz)
+H_PRED = 24 # frames (at 2 Hz)
 cfg.future_frames  = H_PRED  # overwrite H_pred in config!
 # MODEL = 'AF'
 # MODEL = 'CTT'
-# MODEL = 'cv'
-MODEL = 'oracle'
+MODEL = 'cv'
+# MODEL = 'oracle'
 
 # only used for oracle/cv
 if MODEL == 'oracle':
@@ -60,8 +60,8 @@ mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{spli
 mode_metrics_data_path = f'mode_metric_results/interaction_mode_metrics_data_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
 
 plot_mode_overview = False
-plot_all_modes = True
-plot_all_scenes = False
+plot_all_modes = False
+plot_all_scenes = True
 
 save_modes_plots = False
 save_modes_csv = False
@@ -183,38 +183,55 @@ for idx, row in df_interactions_in.iterrows():
                 sample_motion_3D = sample_motion_3D[:,:,:H_PRED,:]
                 recon_motion_3D = recon_motion_3D[:,:H_PRED,:]
 
-                if plot_all_scenes:
-                    data['scene_vis_map'].visualize_trajs(data, sample_motion_3D)
+                if plot_all_scenes and frame == 3:
+
+                    show_agents = [[99, 9,0,7,1], [9,7], [9, 0], [7, 1], [1, 99]]
+                    for i, pairs in enumerate(show_agents):
+                        fig = data['scene_vis_map'].visualize_trajs(data, sample_motion_3D, show_hist = False, show_fut = True, show_pred = False,
+                                                                    show_agents = pairs)
+                        fig.update_layout(showlegend = False)
+                        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+        
+                        pio.write_image(fig, 'ppt_interaction_example/' + f'/{scene_name}_{i}_{frame}.png',
+                                    width=1350, height=500)
 
                 # calculate roll-outs for possible agent pairs:
 
-                fut_mod_decel_list = []
-                fut_mod_accel_list = []
-                for agent_id in focus_agents:
-                    agent = agent_dict[str(int(agent_id))]
-                    fut_rollout_decel = agent.rollout_future(frame_curr = frame, direction = 'decel')
-                    fut_rollout_accel = agent.rollout_future(frame_curr = frame, direction = 'accel')
-                    fut_mod_decel_list.append(fut_rollout_decel)
-                    fut_mod_accel_list.append(fut_rollout_accel)
+                # fut_mod_decel_list = []
+                # fut_mod_accel_list = []
+                # for agent_id in focus_agents:
+                #     agent = agent_dict[str(int(agent_id))]
+                #     fut_rollout_decel = agent.rollout_future(frame_curr = frame, direction = 'decel')
+                #     fut_rollout_accel = agent.rollout_future(frame_curr = frame, direction = 'accel')
+                #     fut_mod_decel_list.append(fut_rollout_decel)
+                #     fut_mod_accel_list.append(fut_rollout_accel)
                 
-                fut_mod_decel = torch.from_numpy(np.stack(fut_mod_decel_list)).unsqueeze(0)
-                fut_mod_accel = torch.from_numpy(np.stack(fut_mod_accel_list)).unsqueeze(0)
+                # fut_mod_decel = torch.from_numpy(np.stack(fut_mod_decel_list)).unsqueeze(0)
+                # fut_mod_accel = torch.from_numpy(np.stack(fut_mod_accel_list)).unsqueeze(0)
                 
-                # length and widths for collision calculation
-                widths = [df_scene[df_scene['agent_id'] == str(agent_id)].width.values[0] for agent_id in focus_agents]
-                lengths = [df_scene[df_scene['agent_id'] == str(agent_id)].length.values[0] for agent_id in focus_agents]
+                # # length and widths for collision calculation
+                # widths = [df_scene[df_scene['agent_id'] == str(agent_id)].width.values[0] for agent_id in focus_agents]
+                # lengths = [df_scene[df_scene['agent_id'] == str(agent_id)].length.values[0] for agent_id in focus_agents]
 
-                # get roll-out combinations and check for collisions
-                fut_mod_rollout_combinations = get_rollout_combinations(fut_mod_decel, fut_mod_accel)
-                fut_mod_rollout_combinations = fut_mod_rollout_combinations[0:2] # first two entries already contain all possible combinations (only for 2 agent case!)
-                fut_mod_rollout_combinations_motion = fut_mod_rollout_combinations[...,0:2]
-                fut_mod_rollout_combinations_heading = fut_mod_rollout_combinations[...,2].unsqueeze(-1)
-                collision_margins, collision_bool = calc_collision_matrix_agentpair(fut_mod_rollout_combinations_motion, fut_mod_rollout_combinations_heading, lengths, widths)
+                # # get roll-out combinations and check for collisions
+                # fut_mod_rollout_combinations = get_rollout_combinations(fut_mod_decel, fut_mod_accel)
+                # fut_mod_rollout_combinations = fut_mod_rollout_combinations[0:2] # first two entries already contain all possible combinations (only for 2 agent case!)
+                # fut_mod_rollout_combinations_motion = fut_mod_rollout_combinations[...,0:2]
+                # fut_mod_rollout_combinations_heading = fut_mod_rollout_combinations[...,2].unsqueeze(-1)
+                # collision_margins, collision_bool = calc_collision_matrix_agentpair(fut_mod_rollout_combinations_motion, fut_mod_rollout_combinations_heading, lengths, widths)
 
                 # visualize interaction pair and calculate modes
-                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair_splitplot(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents)
-                figs_scene.append(fig)
-                modes_scene.append(scene_mode_dict)
+                # fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair_splitplot(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents)
+                # fig.update_layout(margin=dict(l=0, r=0, t=60, b=20))
+ 
+                # pio.write_image(fig, 'ppt_sim_example/' + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}_{frame}.png',width=1400, height=1200/2.4)
+
+                
+                # fig.update_layout(margin=dict(l=0, r=0, t=100, b=0))
+                
+                # figs_scene.append(fig)
+                # modes_scene.append(scene_mode_dict)
+                # fig.show()
 
                 # if frame == 11:
                 #     fig.update_layout(
@@ -227,74 +244,69 @@ for idx, row in df_interactions_in.iterrows():
                 #     pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 
-                if plot_all_modes and frame == 3:
+                # if plot_all_modes:
+                #     fig.show()
 
-                    # fig.show()
-                    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+                # if scene_mode_dict['h_final']:
+                #     df_modes_pair = pd.DataFrame(modes_scene)
+                #     # at what point to cut the data? pred horizon? gt mode? 
+                #     df_modes_pair_filt = df_modes_pair[df_modes_pair.gt_mode == df_modes_pair.gt_mode.values[-1]] # cut data with other modes
+                #     df_modes_pair_filt = df_modes_pair_filt[~df_modes_pair_filt['h_final']] # only look at predictions before the homotoyp class is inevitable
+                #     df_modes_pair_filt = df_modes_pair_filt.tail(H_PRED) # limit to number of prediciton frames
+                #     # df_modes_pair_filt[df_modes_pair_filt.keys()[[0,1,2,3,4,5,6,7,10]]]
 
-                    pio.write_image(fig, 'ppt_model_example_frame/' + f'/new_{MODEL}_{scene_name}_{frame}.png',
-                            width=800, height=800)
+                #     # make new df and store: correct, covered, collapse, v1, h1, v2, h2, dv, dh, frame
+                #     for key, value in df_interactions_in.loc[idx].items():
+                #         df_modes_pair_filt[key] = value                        
 
-                if scene_mode_dict['h_final']:
-                    df_modes_pair = pd.DataFrame(modes_scene)
-                    # at what point to cut the data? pred horizon? gt mode? 
-                    df_modes_pair_filt = df_modes_pair[df_modes_pair.gt_mode == df_modes_pair.gt_mode.values[-1]] # cut data with other modes
-                    df_modes_pair_filt = df_modes_pair_filt[~df_modes_pair_filt['h_final']] # only look at predictions before the homotoyp class is inevitable
-                    df_modes_pair_filt = df_modes_pair_filt.tail(H_PRED) # limit to number of prediciton frames
-                    # df_modes_pair_filt[df_modes_pair_filt.keys()[[0,1,2,3,4,5,6,7,10]]]
-
-                    # make new df and store: correct, covered, collapse, v1, h1, v2, h2, dv, dh, frame
-                    for key, value in df_interactions_in.loc[idx].items():
-                        df_modes_pair_filt[key] = value                        
-
-                    # first filter agent dfs on frame and id
-                    df_agent1 = df_scene[(df_scene.agent_id == str(df_interactions_in.loc[idx, 'agent1']))*(df_scene.frame.isin(list(df_modes_pair_filt.frame.values)))]
-                    df_agent2 = df_scene[(df_scene.agent_id == str(df_interactions_in.loc[idx, 'agent2']))*(df_scene.frame.isin(list(df_modes_pair_filt.frame.values)))]
+                #     # first filter agent dfs on frame and id
+                #     df_agent1 = df_scene[(df_scene.agent_id == str(df_interactions_in.loc[idx, 'agent1']))*(df_scene.frame.isin(list(df_modes_pair_filt.frame.values)))]
+                #     df_agent2 = df_scene[(df_scene.agent_id == str(df_interactions_in.loc[idx, 'agent2']))*(df_scene.frame.isin(list(df_modes_pair_filt.frame.values)))]
                     
-                    # assign data:
-                    df_modes_pair_filt['v1'] = df_agent1.v.values
-                    df_modes_pair_filt['heading1'] = df_agent1.heading.values
-                    df_modes_pair_filt['v2'] = df_agent2.v.values
-                    df_modes_pair_filt['heading2'] = df_agent2.heading.values
+                #     # assign data:
+                #     df_modes_pair_filt['v1'] = df_agent1.v.values
+                #     df_modes_pair_filt['heading1'] = df_agent1.heading.values
+                #     df_modes_pair_filt['v2'] = df_agent2.v.values
+                #     df_modes_pair_filt['heading2'] = df_agent2.heading.values
 
-                    dfs_data.append(df_modes_pair_filt)
+                #     dfs_data.append(df_modes_pair_filt)
 
 
-                    # calc metrics:
-                    if len(df_modes_pair_filt) > 0:
-                        prediction_consistentcy = check_consistency(df_modes_pair_filt['ml_mode'])
-                        t2cor, pred_time = calc_time_based_metric(df_modes_pair_filt['mode_correct'], Hpred = H_PRED)
-                        t2cov, _ = calc_time_based_metric(df_modes_pair_filt['mode_covered'], Hpred = H_PRED)
-                        mode_collapse = df_modes_pair_filt['N_modes_covered'] < df_modes_pair_filt['N_feasible_rollouts']
-                        r_mode_collapse = round(100*(sum(mode_collapse)/len(mode_collapse)), 1)
+                #     # calc metrics:
+                #     if len(df_modes_pair_filt) > 0:
+                #         prediction_consistentcy = check_consistency(df_modes_pair_filt['ml_mode'])
+                #         t2cor, pred_time = calc_time_based_metric(df_modes_pair_filt['mode_correct'], Hpred = H_PRED)
+                #         t2cov, _ = calc_time_based_metric(df_modes_pair_filt['mode_covered'], Hpred = H_PRED)
+                #         mode_collapse = df_modes_pair_filt['N_modes_covered'] < df_modes_pair_filt['N_feasible_rollouts']
+                #         r_mode_collapse = round(100*(sum(mode_collapse)/len(mode_collapse)), 1)
 
-                        # save metrics to existing df
-                        df_interactions_out.loc[idx, 'pred_time'] = pred_time
-                        df_interactions_out.loc[idx, 't2cor'] = t2cor
-                        df_interactions_out.loc[idx, 't2cov'] = t2cov
-                        df_interactions_out.loc[idx, 'r_mode_collapse'] = r_mode_collapse
-                        df_interactions_out.loc[idx, 'prediction_consistency'] = prediction_consistentcy
+                #         # save metrics to existing df
+                #         df_interactions_out.loc[idx, 'pred_time'] = pred_time
+                #         df_interactions_out.loc[idx, 't2cor'] = t2cor
+                #         df_interactions_out.loc[idx, 't2cov'] = t2cov
+                #         df_interactions_out.loc[idx, 'r_mode_collapse'] = r_mode_collapse
+                #         df_interactions_out.loc[idx, 'prediction_consistency'] = prediction_consistentcy
 
-                        # save figure and metrics:
-                        fig = figs_scene[-2]
-                        vis_start_frame = df_modes_pair_filt.iloc[-1].frame
-                        vis_end_frame = vis_start_frame + df_modes_pair_filt.iloc[-1].Npred_frames
-                        title = f"{row['scene']} frame {vis_start_frame}-{vis_end_frame}, t2cor: {t2cor}s, t2cov: {t2cov}s, pred_time: {pred_time}s, pred_consistency: {prediction_consistentcy}, r_mode_collapse: {r_mode_collapse}%"
-                        fig.update_layout(
-                                title=dict(text = title),
-                            )
-                        if plot_mode_overview:
-                            fig.show()
-                        if save_modes_plots:
-                            fig.update_layout(margin=dict(l=0, r=0, t=100, b=0))
-                            pio.write_image(fig, save_pred_imgs_path + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}.png',width=1200, height=1200/2.4)
-                    else:
-                        raise ValueError('prediction length too short for mode evaluation')
-                        # print('prediction length too short for mode evaluation')
+                #         # save figure and metrics:
+                #         fig = figs_scene[-2]
+                #         vis_start_frame = df_modes_pair_filt.iloc[-1].frame
+                #         vis_end_frame = vis_start_frame + df_modes_pair_filt.iloc[-1].Npred_frames
+                #         title = f"{row['scene']} frame {vis_start_frame}-{vis_end_frame}, t2cor: {t2cor}s, t2cov: {t2cov}s, pred_time: {pred_time}s, pred_consistency: {prediction_consistentcy}, r_mode_collapse: {r_mode_collapse}%"
+                #         fig.update_layout(
+                #                 title=dict(text = title),
+                #             )
+                #         if plot_mode_overview:
+                #             fig.show()
+                #         if save_modes_plots:
+                #             fig.update_layout(margin=dict(l=0, r=0, t=100, b=0))
+                #             pio.write_image(fig, save_pred_imgs_path + f'/{scene_name}_{focus_agents[0]}_{focus_agents[1]}.png',width=1200, height=1200/2.4)
+                #     else:
+                #         raise ValueError('prediction length too short for mode evaluation')
+                #         # print('prediction length too short for mode evaluation')
 
-                    break # break for loop 
+                #     break # break for loop 
 
-    except Exception as e:
+    except NotImplementedError as e: #Exception as e:
         print(e)
         logger.error(f'Error for {MODEL} model (Tpred {H_PRED} frames) in {scene_name} for agents: {str(focus_agents)}: {e}')
 

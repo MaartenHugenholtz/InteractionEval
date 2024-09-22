@@ -388,7 +388,8 @@ class GeometricMap(Map):
         # fig.show()
         return fig
 
-    def visualize_trajs(self, data, prediction, show_map = True, show_hist= True, show_fut = True, show_pred = True, show_fig = True):
+    def visualize_trajs(self, data, prediction, show_map = True, show_hist= True, show_fut = True, show_pred = True, show_fig = True,
+                        show_agents = None):
         """
         Plots GT trajectories (full)
         And predictions for all agents (grouped per scene prediction)
@@ -443,6 +444,7 @@ class GeometricMap(Map):
                 mode='lines+markers',
                 name = f'gt_agent_{agent_id}',
                 # showlegend= (agent_idx==0),
+                opacity= 1 if (agent_id in show_agents) else 0.3,
                 legendgroup='gt_pre',
                 legendgrouptitle_text='gt_pre',
                 visible =  True if show_hist else 'legendonly',
@@ -455,7 +457,7 @@ class GeometricMap(Map):
                 y=motion_fut[agent_idx,:,0],  # x and y reversed for image
                 mode='lines+markers',
                 name = f'gt_agent_{agent_id}',
-                # showlegend= (agent_idx==0),
+                opacity= 1 if (agent_id in show_agents) else 0.3,
                 legendgroup='gt_fut',
                 legendgrouptitle_text='gt_fut',
                 visible =True if show_fut else 'legendonly',
@@ -476,6 +478,7 @@ class GeometricMap(Map):
                             legendgrouptitle_text='vehicle',
                             name = f'gt_agent_{agent_id}',
                             showlegend=True,
+                            opacity= 1 if (agent_id in show_agents) else 0.3,
                             line=dict(color=colors[agent_idx]),
                             ))
             
@@ -505,8 +508,10 @@ class GeometricMap(Map):
             yaxis=dict(visible=False),
             # title=dict(text = data['seq'] + ', frame-' + str(data['frame'])),
         )
-        fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin], visible = False, scaleanchor="y", scaleratio=1)
-        fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin], visible = False, scaleanchor="x", scaleratio=1) #
+        # fig.update_xaxes(range=[all_x.min() - margin, all_x.max() + margin], visible = False, scaleanchor="y", scaleratio=1)
+        # fig.update_yaxes(range=[all_y.max() + margin, all_y.min() - margin], visible = False, scaleanchor="x", scaleratio=1) #
+        fig.update_xaxes(range=[149.57847450771078, 864.4404412689532], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[625.6449890136719, 358.1360168457031], visible = False, scaleanchor="x", scaleratio=1) #
 
 
         # Show the Plotly figure
@@ -825,17 +830,16 @@ class GeometricMap(Map):
         img = np.transpose(self.data, (1, 2, 0))  
 
         # Create a Plotly figure with 1 row and 3 columns
-        # fig = make_subplots(rows=1, cols=4, shared_yaxes=True, 
-        #                     subplot_titles=("Ground truth", "Predictions", "Roll-out 1", "Roll-out 2"),
-        #                     horizontal_spacing = 0.0,
-        #                     vertical_spacing = 0.0)
+        fig = make_subplots(rows=1, cols=3, shared_yaxes=True, 
+                            subplot_titles=(f"Ground truth: {gt_class[0]}",  f"Roll-out 1: {rollout_classes[0]}", f"Roll-out 2: {rollout_classes[1]}"),
+                            horizontal_spacing = 0.0,
+                            vertical_spacing = 0.0)
         
         # Plot the image in all three subplots
-        # fig.add_trace(go.Image(z=img), row=1, col=1)
-        # fig.add_trace(go.Image(z=img), row=1, col=2)
-        # fig.add_trace(go.Image(z=img), row=1, col=3)
+        fig.add_trace(go.Image(z=img), row=1, col=1)
+        fig.add_trace(go.Image(z=img), row=1, col=2)
+        fig.add_trace(go.Image(z=img), row=1, col=3)
         # fig.add_trace(go.Image(z=img), row=1, col=4)
-        fig = px.imshow(img)
 
         # colors agents 
         colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
@@ -857,10 +861,9 @@ class GeometricMap(Map):
                 legendgroup='gt',
                 legendgrouptitle_text=f'gt<br>h_class: {gt_class[0]}<br>',
                 line=dict(color=colors[agent_idx]),
-                visible = False,
                 showlegend=True,
                 ),
-                # row=1, col=1,
+                row=1, col=1,
             )
 
             # add vehicle shapes:
@@ -871,7 +874,7 @@ class GeometricMap(Map):
                                             heading = agent_headings[agent_idx])
             
             # add to all plots:
-            for col_num in range(1, 2):
+            for col_num in range(1, 4):
                 fig.add_trace(
                     go.Scatter(x=y_points, y=x_points, 
                             fill="toself",
@@ -881,50 +884,50 @@ class GeometricMap(Map):
                                 showlegend=False,
                                 line=dict(color=colors[agent_idx]),
                                 ),
-                    # row=1, col=col_num,
+                    row=1, col=col_num,
                 )
 
-        # Plot the predictions
-        for agent_idx, agent_id in enumerate(agent_ids):
-            for pred in range(pred_map.shape[0]):
-                fig.add_trace(go.Scatter(
-                    x=pred_map[pred,agent_idx,:,1],
-                    y=pred_map[pred,agent_idx,:,0],  # x and y reversed for image
-                    mode='lines + markers',
-                    name = f'agent_{int(agent_id)}',
-                    marker_symbol = marker_dict[pred_classes[pred]],
-                    # showlegend= (agent_idx==0),
-                    legendgroup=f'pred{pred+1}',
-                    legendgrouptitle_text=f'pred{pred+1}<br>h_class: {pred_classes[pred]}<br>',
-                    opacity= 1.0, #if pred == 0 else 0.2, # ML prediction better visible
-                    line=dict(color=colors[agent_idx], dash='dash'),
-                    visible = True, # if pred == 0 else 'legendonly',
-                    showlegend=True,
-                    ),
-                    # row=1, col=2,
-                )
-
-        # Plot the roll-outs
+        # # Plot the predictions
         # for agent_idx, agent_id in enumerate(agent_ids):
-        #     # rollout_symbols = ['square', 'x']
-        #     r_markersize = 6
-        #     for r in range(rollout_map.shape[0]):
+        #     for pred in range(pred_map.shape[0]):
         #         fig.add_trace(go.Scatter(
-        #             x=rollout_map[r,agent_idx,:,1],
-        #             y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
+        #             x=pred_map[pred,agent_idx,:,1],
+        #             y=pred_map[pred,agent_idx,:,0],  # x and y reversed for image
         #             mode='lines + markers',
         #             name = f'agent_{int(agent_id)}',
-        #             marker_symbol= marker_dict[rollout_classes[r]],
-        #             marker_size = r_markersize,
+        #             marker_symbol = marker_dict[pred_classes[pred]],
         #             # showlegend= (agent_idx==0),
-        #             legendgroup=f'rollout{r+1}',
-        #             legendgrouptitle_text=f'rollout{r+1}<br>h_class: {rollout_classes[r]}<br>collision: {rollout_collisions_bool[r]}',
-        #             opacity=1,
-        #             line=dict(color=colors[agent_idx], dash='dot'),
+        #             legendgroup=f'pred{pred+1}',
+        #             legendgrouptitle_text=f'pred{pred+1}<br>h_class: {pred_classes[pred]}<br>',
+        #             opacity= 1.0 if pred == 0 else 0.2, # ML prediction better visible
+        #             line=dict(color=colors[agent_idx], dash='dash'),
+        #             visible = True, # if pred == 0 else 'legendonly',
         #             showlegend=True,
         #             ),
-        #             row=1, col=3 + r,
+        #             row=1, col=2,
         #         )
+
+        # Plot the roll-outs
+        for agent_idx, agent_id in enumerate(agent_ids):
+            # rollout_symbols = ['square', 'x']
+            r_markersize = 6
+            for r in range(rollout_map.shape[0]):
+                fig.add_trace(go.Scatter(
+                    x=rollout_map[r,agent_idx,:,1],
+                    y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
+                    mode='lines + markers',
+                    name = f'agent_{int(agent_id)}',
+                    marker_symbol= marker_dict[rollout_classes[r]],
+                    marker_size = r_markersize,
+                    # showlegend= (agent_idx==0),
+                    legendgroup=f'rollout{r+1}',
+                    legendgrouptitle_text=f'rollout{r+1}<br>h_class: {rollout_classes[r]}<br>collision: {rollout_collisions_bool[r]}',
+                    opacity=1,
+                    line=dict(color=colors[agent_idx], dash='dot'),
+                    showlegend=True,
+                    ),
+                    row=1, col=2 + r,
+                )
 
         # Update layout to remove axes
         # fig.update_layout(
@@ -934,8 +937,8 @@ class GeometricMap(Map):
 
         if plot_square:
             # Calculate the range for both axes
-            x_range = all_x.max() - all_x.min()
-            y_range = all_y.max() - all_y.min()
+            x_range = all_x.max() - all_x.min() # [233.90721386442988, 475.9251030668099] [195.30682373046875, 414.11285400390625]
+            y_range = all_y.max() - all_y.min() # [470.84161967113005, 228.82373046875] [557.323486328125, 338.5174560546875]
 
             # Determine the maximum range
             max_range = max(x_range, y_range)
@@ -946,14 +949,10 @@ class GeometricMap(Map):
             extra_margin_y = 0
 
 
-        fig.update_xaxes(range=[242.62535846305536, 457.0276010625794], visible = False, scaleanchor="y", scaleratio=1)
-        fig.update_yaxes(range=[466.656148849524, 252.25390625], visible = False, scaleanchor="x", scaleratio=1) #        
-        fig.update_layout(legend=dict(
-                orientation="v"))
-        # fig.update_xaxes(range=[all_x.min() - margin - extra_margin_x, all_x.max() + margin + extra_margin_x], visible = False, scaleanchor="y", scaleratio=1)
-        # fig.update_yaxes(range=[all_y.max() + margin + extra_margin_y, all_y.min() - margin - extra_margin_y], visible = False, scaleanchor="x", scaleratio=1) #        
-        # fig.update_layout(legend=dict(
-        #         orientation="v"))
+
+        fig.update_xaxes(range=[195,  476 ], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[557, 229], visible = False, scaleanchor="x", scaleratio=1) #        
+        fig.update_layout(showlegend = False)
 
 
 
