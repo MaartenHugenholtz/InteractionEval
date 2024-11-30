@@ -7,5 +7,7 @@ easydict
 nuscenes-devkit
 plotly
 pandas
-# kaleido==0.2.1
-kaleido==0.1.0post1
+kaleido==0.2.1
+
+# if issues with saving graphs (on windows), one can use this version of kaleido instead:
+# kaleido==0.1.0post1 

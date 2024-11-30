@@ -2,7 +2,7 @@ from data.nuscenes_pred_split import get_nuscenes_pred_split
 import os, random, numpy as np, copy
 
 from .preprocessor import preprocess
-from .ethucy_split import get_ethucy_split
+# from .ethucy_split import get_ethucy_split
 from utils.utils import print_log
 
 
@@ -82,12 +82,8 @@ class data_generator(object):
         self.index += 1
         
         data = seq(frame)
-        try:
-            data['ids_list_scene'] = np.unique(seq.gt[:,1]) # complete list of ids over the whole scene
-            data['gt_scene'] = seq.gt
-        except Exception as e:
-            print(e)
-            
+        data['ids_list_scene'] = np.unique(seq.gt[:,1]) # complete list of ids over the whole scene
+        data['gt_scene'] = seq.gt
         return data      
 
     def __call__(self):

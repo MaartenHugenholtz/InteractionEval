@@ -7,9 +7,9 @@ from plotly.subplots import make_subplots
 import plotly.io as pio
 
 Hpred_time = 6 # TIME NOT FRAMES!
-K_Modes = 10
+K_Modes = 5
 
-save_plot = True
+save_plot = False
 save_path = f'mode_metric_results/mode_metrics_{Hpred_time}s.png'
 
 Title = f'Model prediction results @ {Hpred_time}s'

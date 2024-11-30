@@ -5,7 +5,7 @@ import sys
 import subprocess
 import shutil
 sys.path.append(os.getcwd())
-from data.dataloader_debug import data_generator
+from data.dataloader import data_generator
 from utils.torch import *
 from utils.config import Config
 from AF_model.model_lib import model_dict
@@ -140,12 +140,12 @@ for idx, row in df_interactions_in.iterrows():
                     with torch.no_grad():
                         recon_motion_3D, sample_motion_3D = get_model_prediction_af(data, cfg.sample_k)
                     recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
-                elif MODEL == 'CTT':
-                    assert H_PRED == 6, 'CTT not made for H_pred other than 6'
-                    try:
-                        recon_motion_3D, sample_motion_3D = get_model_prediction_ctt(data, cfg.sample_k)
-                    except ValueError:
-                        continue
+                # elif MODEL == 'CTT':
+                #     assert H_PRED == 6, 'CTT not made for H_pred other than 6'
+                #     try:
+                #         recon_motion_3D, sample_motion_3D = get_model_prediction_ctt(data, cfg.sample_k)
+                #     except ValueError:
+                #         continue
                 elif MODEL == 'cv':
                     recon_motion_3D, sample_motion_3D = get_model_prediction_cv(data, cfg.sample_k, agent_dict, path_intersection_bool_frame, use_gt_path = use_gt_path)
                 elif MODEL == 'oracle':
@@ -186,20 +186,9 @@ for idx, row in df_interactions_in.iterrows():
 
                 # visualize interaction pair and calculate modes
                 fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair_splitplot(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents,
-                                                                                                        new_legend = True)
+                                                                                                        )
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
-
-                if frame == 11:
-                    fig.update_layout(
-                        margin=dict(
-                            l=0,  # left margin
-                            r=0,  # right margin
-                        )
-                    )
-                    fig.show()
-                    pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
-
 
                 if plot_all_modes and frame == 3:
 

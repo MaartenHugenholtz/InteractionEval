@@ -5,12 +5,13 @@ import numpy as np
 import pandas as pd
 from plotly.subplots import make_subplots
 import plotly.io as pio
+
+# load and combine data
 df_train = pd.read_csv('interaction_scenes/interaction_metrics_train_all.csv')
 df_val = pd.read_csv('interaction_scenes/interaction_metrics_val_all.csv')
 df  = pd.concat([df_train, df_val])
 
 df['start_path_sharing_time_difference'] = df['start_path_sharing_frame_difference']  / 2 # 2 Hz
-
 df_path_sharing = df[df['path_sharing_bool']]  # path sharing at the end
 df_interaction = df[df['interaction_bool']]
 
@@ -35,20 +36,14 @@ print('N_interactions_pathsharing_total', N_interactions_pathsharing_total)
 print('N_interactions_critical_total', N_interactions_critical_total)
 print('N_interactions_final_total', N_interactions_final_total)
 
-# px.scatter(df_path_sharing, x = 'start_path_sharing_frame_difference', y = 'real_time_closest_distance').show()
 fig = px.density_heatmap(df_path_sharing, 
                    x = 'start_path_sharing_time_difference', y = 'real_time_closest_distance',
                    color_continuous_scale='deep')
-# px.histogram(df_path_sharing, x = 'start_path_sharing_frame_difference').show()
-
-
 fig.update_layout(margin=dict(l=5, r=5, t=5, b=5))
 fig.update_layout(width=500, height=400)
 fig.update_xaxes(title_text=r"$\Delta t_{\text{path-sharing}} \, \text{(s)}$",title_font={"size": 40})
-# fig.update_yaxes(title_text=r"$\min D$",title_font={"size": 30}) 
 fig.update_yaxes(title_text=r"$d_{\text{min}} \, \text{(m)}$",title_font={"size": 40})
 
-
-pio.write_image(fig, 'interaction_scenes/path_sharing_density.png')
+# pio.write_image(fig, 'interaction_scenes/path_sharing_density.png')
 
 fig.show()

@@ -146,11 +146,10 @@ for i in range(1, 4):
 fig.update_layout(margin=dict(l=5, r=5, t=50, b=5))
 
 # Show the figure
-# fig.update_layout(title_text=Title)
 fig.show()
 
 
-pio.write_image(fig, save_path, width=0.8*1*1700/1.1, height=0.8*0.8*800/1.2)
+# pio.write_image(fig, save_path, width=0.8*1*1700/1.1, height=0.8*0.8*800/1.2)
 
 
 fig = px.histogram(df[df['model']=='AF'], x = 'Dt_till_h_final')
@@ -168,5 +167,5 @@ fig.update_layout(width=500, height=400)
 
 fig.show()
 
-pio.write_image(fig, f'mode_metric_results/histogram_dt_h_collapse_{Hpred_time}s.png',engine='kaleido')
+# pio.write_image(fig, f'mode_metric_results/histogram_dt_h_collapse_{Hpred_time}s.png',engine='kaleido')
 

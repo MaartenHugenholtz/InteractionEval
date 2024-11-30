@@ -2,7 +2,7 @@ import numpy as np
 import os
 import sys
 sys.path.append(os.getcwd())
-from data.dataloader_debug import data_generator
+from data.dataloader import data_generator
 from utils.torch import *
 from utils.config import Config
 from AF_model.model_lib import model_dict

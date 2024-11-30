@@ -1,7 +1,6 @@
 # data and results folders
-#/datasets
-#/CTT_predictions
-# /pred_imgs_val
+# /datasets
+# /pred_imgs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
