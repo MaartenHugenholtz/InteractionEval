@@ -4,6 +4,7 @@ In this paper, we propose a novel evaluation framework that assesses mode collap
 We hope that our framework can help researchers gain new insights and advance the development of more consistent and accurate prediction models, thus enhancing the safety of autonomous driving systems.
 
 Below we show an examplary visualization of our method, where we evaluate the predicted interaciton modes against the ground truth and other feasible modes.
+
 ![](utils/example_vis_method.png)
 
 
