@@ -16,7 +16,7 @@ Furthermore, we use [CTTs](https://github.com/NVlabs/diffstack/blob/CTT_release/
 ## Installation 
 
 ### Environment
-* **Tested OS:** MacOS, Linux
+* **Tested OS:** Windows, Linux
 * Python >= 3.7
 * PyTorch == 1.8.0
 ### Dependencies:
