@@ -2,7 +2,7 @@ from data.nuscenes_pred_split import get_nuscenes_pred_split
 import os, random, numpy as np, copy
 
 from .preprocessor import preprocess
-from .ethucy_split import get_ethucy_split
+# from .ethucy_split import get_ethucy_split
 from utils.utils import print_log
 
 

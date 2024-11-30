@@ -18,9 +18,11 @@ import plotly.io as pio
 from utils.agent_class import Agent
 import time 
 from tqdm import tqdm
-from additional_models.cv_model import get_model_prediction as get_model_prediction_cv
-from additional_models.oracle_model import get_model_prediction as get_model_prediction_oracle
+from VTP_models.cv_model import get_model_prediction as get_model_prediction_cv
+from VTP_models.oracle_model import get_model_prediction as get_model_prediction_oracle
+from VTP_models.af_model import get_model_prediction as get_model_prediction_af
 import logging
+
 logging.basicConfig(filename='calc_modemetric.log', 
                     level = logging.DEBUG,    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', # Log message format
                     datefmt='%Y-%m-%d %H:%M:%S')
@@ -28,20 +30,16 @@ logger = logging.getLogger('calc_modemetric')
 start_time = time.time()
 
 
-""" MODEL """
-K_Modes = 5
-if K_Modes == 5:
-    cfg = Config('nuscenes_5sample_agentformer' )
-else:
-    cfg = Config('nuscenes_10sample_agentformer' )
-
-############################################
+""" CONFIG """
+cfg = Config('nuscenes_5sample_agentformer' )
 H_PRED = 12 # frames (at 2 Hz)
+K_Modes = 5
 cfg.future_frames  = H_PRED  # overwrite H_pred in config!
-# MODEL = 'AF'
+
+MODEL = 'AF'
 # MODEL = 'CTT'
 # MODEL = 'cv'
-MODEL = 'oracle'
+# MODEL = 'oracle'
 
 # only used for oracle/cv
 if MODEL == 'oracle':
@@ -58,42 +56,18 @@ mkdir_if_missing(save_pred_imgs_path)
 mode_metrics_path = f'mode_metric_results/interaction_mode_metrics_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
 mode_metrics_data_path = f'mode_metric_results/interaction_mode_metrics_data_{MODEL}_{split}_Tpred_{H_PRED}f_{K_Modes}samples.csv'
 
-plot_mode_overview = False
-plot_all_modes = True
+plot_mode_overview = True
+plot_all_modes = False
 plot_all_scenes = False
 
 save_modes_plots = False
 save_modes_csv = False
 
 focus_scene_bool = True
-scene_focus_name = 'scene-0108'
+scene_focus_name = 'scene-0103'
 
-""""""" SETUP """""""
-torch.set_default_dtype(torch.float32)
-device = torch.device('cuda', index=0) if 0 >= 0 and torch.cuda.is_available() else torch.device('cpu')
-if torch.cuda.is_available(): torch.cuda.set_device(0)
-torch.set_grad_enabled(False)
+
 log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
-
-epochs = [cfg.get_last_epoch()]
-epoch = epochs[0]
-model_id = cfg.get('model_id', 'agentformer')
-model = model_dict[model_id](cfg)
-model.set_device(device)
-model.eval()
-cp_path = cfg.model_path % epoch
-print_log(f'loading model from checkpoint: {cp_path}', log, display=True)
-model_cp = torch.load(cp_path, map_location='cpu')
-model.load_state_dict(model_cp['model_dict'], strict=False)
-
-def get_model_prediction_af(data, sample_k = K_Modes):
-    model.set_data(data)
-    recon_motion_3D, _ = model.inference(mode='recon', sample_num=sample_k)
-    sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
-    sample_motion_3D = sample_motion_3D.transpose(0, 1).contiguous()
-    return recon_motion_3D, sample_motion_3D
-
-""""  #################  """
 
 
 """ Get predictions and compute metrics """
@@ -211,19 +185,20 @@ for idx, row in df_interactions_in.iterrows():
                 collision_margins, collision_bool = calc_collision_matrix_agentpair(fut_mod_rollout_combinations_motion, fut_mod_rollout_combinations_heading, lengths, widths)
 
                 # visualize interaction pair and calculate modes
-                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair_splitplot(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents)
+                fig, scene_mode_dict = data['scene_vis_map'].visualize_interactionpair_splitplot(data, sample_motion_3D, fut_mod_rollout_combinations_motion, collision_bool, focus_agents,
+                                                                                                        new_legend = True)
                 figs_scene.append(fig)
                 modes_scene.append(scene_mode_dict)
 
-                # if frame == 11:
-                #     fig.update_layout(
-                #         margin=dict(
-                #             l=0,  # left margin
-                #             r=0,  # right margin
-                #         )
-                #     )
-                #     fig.show()
-                #     pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
+                if frame == 11:
+                    fig.update_layout(
+                        margin=dict(
+                            l=0,  # left margin
+                            r=0,  # right margin
+                        )
+                    )
+                    fig.show()
+                    pio.write_image(fig, 'example_vis_method.png',width=0.8*1700/1.1, height=0.8*800/1.2)
 
 
                 if plot_all_modes and frame == 3:

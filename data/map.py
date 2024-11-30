@@ -716,7 +716,8 @@ class GeometricMap(Map):
 
 
     def visualize_interactionpair_splitplot(self, data, prediction, rollout, rollout_collisions, agent_pair,
-                                            plot_square = True):
+                                            plot_square = True,
+                                            new_legend = False):
         """
         Plots GT trajectories (full)
         And predictions for all agents (grouped per scene prediction)
@@ -825,17 +826,16 @@ class GeometricMap(Map):
         img = np.transpose(self.data, (1, 2, 0))  
 
         # Create a Plotly figure with 1 row and 3 columns
-        # fig = make_subplots(rows=1, cols=4, shared_yaxes=True, 
-        #                     subplot_titles=("Ground truth", "Predictions", "Roll-out 1", "Roll-out 2"),
-        #                     horizontal_spacing = 0.0,
-        #                     vertical_spacing = 0.0)
+        fig = make_subplots(rows=1, cols=4, shared_yaxes=True, 
+                            subplot_titles=("Ground truth", "Predictions", "Roll-out 1", "Roll-out 2"),
+                            horizontal_spacing = 0.0,
+                            vertical_spacing = 0.0)
         
         # Plot the image in all three subplots
-        # fig.add_trace(go.Image(z=img), row=1, col=1)
-        # fig.add_trace(go.Image(z=img), row=1, col=2)
-        # fig.add_trace(go.Image(z=img), row=1, col=3)
-        # fig.add_trace(go.Image(z=img), row=1, col=4)
-        fig = px.imshow(img)
+        fig.add_trace(go.Image(z=img), row=1, col=1)
+        fig.add_trace(go.Image(z=img), row=1, col=2)
+        fig.add_trace(go.Image(z=img), row=1, col=3)
+        fig.add_trace(go.Image(z=img), row=1, col=4)
 
         # colors agents 
         colors = px.colors.qualitative.Plotly + px.colors.qualitative.Alphabet +  px.colors.qualitative.Dark24
@@ -857,10 +857,9 @@ class GeometricMap(Map):
                 legendgroup='gt',
                 legendgrouptitle_text=f'gt<br>h_class: {gt_class[0]}<br>',
                 line=dict(color=colors[agent_idx]),
-                visible = False,
                 showlegend=True,
                 ),
-                # row=1, col=1,
+                row=1, col=1,
             )
 
             # add vehicle shapes:
@@ -871,7 +870,7 @@ class GeometricMap(Map):
                                             heading = agent_headings[agent_idx])
             
             # add to all plots:
-            for col_num in range(1, 2):
+            for col_num in range(1, 5):
                 fig.add_trace(
                     go.Scatter(x=y_points, y=x_points, 
                             fill="toself",
@@ -881,7 +880,7 @@ class GeometricMap(Map):
                                 showlegend=False,
                                 line=dict(color=colors[agent_idx]),
                                 ),
-                    # row=1, col=col_num,
+                    row=1, col=col_num,
                 )
 
         # Plot the predictions
@@ -895,41 +894,46 @@ class GeometricMap(Map):
                     marker_symbol = marker_dict[pred_classes[pred]],
                     # showlegend= (agent_idx==0),
                     legendgroup=f'pred{pred+1}',
-                    legendgrouptitle_text=f'pred{pred+1}<br>h_class: {pred_classes[pred]}<br>',
-                    opacity= 1.0, #if pred == 0 else 0.2, # ML prediction better visible
-                    line=dict(color=colors[agent_idx], dash='dash'),
+                    legendgrouptitle_text=f'pred {pred+1}<br>h_class: {pred_classes[pred]}<br>',
+                    opacity= 1.0 if pred == 0 else 0.2, # ML prediction better visible
+                    line=dict(color=colors[agent_idx], ),
                     visible = True, # if pred == 0 else 'legendonly',
                     showlegend=True,
                     ),
-                    # row=1, col=2,
+                    row=1, col=2,
                 )
 
         # Plot the roll-outs
-        # for agent_idx, agent_id in enumerate(agent_ids):
-        #     # rollout_symbols = ['square', 'x']
-        #     r_markersize = 6
-        #     for r in range(rollout_map.shape[0]):
-        #         fig.add_trace(go.Scatter(
-        #             x=rollout_map[r,agent_idx,:,1],
-        #             y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
-        #             mode='lines + markers',
-        #             name = f'agent_{int(agent_id)}',
-        #             marker_symbol= marker_dict[rollout_classes[r]],
-        #             marker_size = r_markersize,
-        #             # showlegend= (agent_idx==0),
-        #             legendgroup=f'rollout{r+1}',
-        #             legendgrouptitle_text=f'rollout{r+1}<br>h_class: {rollout_classes[r]}<br>collision: {rollout_collisions_bool[r]}',
-        #             opacity=1,
-        #             line=dict(color=colors[agent_idx], dash='dot'),
-        #             showlegend=True,
-        #             ),
-        #             row=1, col=3 + r,
-        #         )
+        for agent_idx, agent_id in enumerate(agent_ids):
+            # rollout_symbols = ['square', 'x']
+            r_markersize = 6
+            for r in range(rollout_map.shape[0]):
+                fig.add_trace(go.Scatter(
+                    x=rollout_map[r,agent_idx,:,1],
+                    y=rollout_map[r,agent_idx,:,0],  # x and y reversed for image
+                    mode='lines + markers',
+                    name = f'agent_{int(agent_id)}',
+                    marker_symbol= marker_dict[rollout_classes[r]],
+                    marker_size = r_markersize,
+                    # showlegend= (agent_idx==0),
+                    legendgroup=f'rollout{r+1}',
+                    legendgrouptitle_text=f'roll-out {r+1}<br>h_class: {rollout_classes[r]}<br>collision: {rollout_collisions_bool[r]}',
+                    opacity=1,
+                    line=dict(color=colors[agent_idx], ),
+                    showlegend=True,
+                    ),
+                    row=1, col=3 + r,
+                )
+
+        if new_legend:
+            fig = self.add_new_legend(fig, colors, agent_ids)
 
         # Update layout to remove axes
-        # fig.update_layout(
-        #     title=dict(text = data['seq'] + ', frame ' + str(data['frame']) + '-' + str(Npred_frames + data['frame'])),
-        # )
+        fig.update_layout(
+            title=dict(text = data['seq'] + ', frame ' + str(data['frame']) + '-' + str(Npred_frames + data['frame'])),
+             margin=dict(b=0),  # Minimize margins
+
+        )
         
 
         if plot_square:
@@ -946,14 +950,11 @@ class GeometricMap(Map):
             extra_margin_y = 0
 
 
-        fig.update_xaxes(range=[242.62535846305536, 457.0276010625794], visible = False, scaleanchor="y", scaleratio=1)
-        fig.update_yaxes(range=[466.656148849524, 252.25390625], visible = False, scaleanchor="x", scaleratio=1) #        
+
+        fig.update_xaxes(range=[all_x.min() - margin - extra_margin_x, all_x.max() + margin + extra_margin_x], visible = False, scaleanchor="y", scaleratio=1)
+        fig.update_yaxes(range=[all_y.max() + margin + extra_margin_y, all_y.min() - margin - extra_margin_y], visible = False, scaleanchor="x", scaleratio=1) #        
         fig.update_layout(legend=dict(
-                orientation="v"))
-        # fig.update_xaxes(range=[all_x.min() - margin - extra_margin_x, all_x.max() + margin + extra_margin_x], visible = False, scaleanchor="y", scaleratio=1)
-        # fig.update_yaxes(range=[all_y.max() + margin + extra_margin_y, all_y.min() - margin - extra_margin_y], visible = False, scaleanchor="x", scaleratio=1) #        
-        # fig.update_layout(legend=dict(
-        #         orientation="v"))
+                orientation="h"))
 
 
 
@@ -961,3 +962,81 @@ class GeometricMap(Map):
         # fig.show()
         # print()
         return fig, mode_dict
+    
+    def add_new_legend(self, fig, colors, agent_ids):
+                ### make legend entries:
+
+        # agent ids
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(
+                go.Scatter(x=[0,0], y=[0,0], 
+                        fill="toself",
+                        mode = 'lines',
+                            legendgroup='Agent id',
+                            legendgrouptitle_text = 'Agent id',
+                            name = str(int(agent_id)),
+                            showlegend=True,
+                            line=dict(color=colors[agent_idx]),
+                            ),
+                row=1, col=1,
+            )
+
+        # h-class: CW
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(
+                    go.Scatter(x=[0,0], y=[0,0], 
+                                mode = 'markers',
+                                legendgroup='cw',
+                                legendgrouptitle_text = 'CW class',
+                                marker_symbol = 'circle',
+                                name = '',
+                                showlegend=True,
+                                line=dict(color=colors[agent_idx]),
+                                ),
+                    row=1, col=1,
+                )
+        # h-class: CCW
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(
+                    go.Scatter(x=[0,0], y=[0,0], 
+                                mode = 'markers',
+                                legendgroup='ccw',
+                                legendgrouptitle_text = 'CCW class',
+                                marker_symbol = 'diamond',
+                                name = '',
+                                showlegend=True,
+                                line=dict(color=colors[agent_idx]),
+                                ),
+                    row=1, col=1,
+                )
+            
+        # ML pred
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(
+                    go.Scatter(x=[0,0], y=[0,0], 
+                                mode = 'lines',
+                                legendgroup='ML',
+                                legendgrouptitle_text = 'ML prediction',
+                                name = '',
+                                showlegend=True,
+                                opacity= 1,
+                                line=dict(color=colors[agent_idx]),
+                                ),
+                    row=1, col=1,
+                )
+        
+        # other pred
+        for agent_idx, agent_id in enumerate(agent_ids):
+            fig.add_trace(
+                    go.Scatter(x=[0,0], y=[0,0], 
+                                mode = 'lines',
+                                legendgroup='other',
+                                legendgrouptitle_text = 'Other predictions',
+                                name = '',
+                                showlegend=True,
+                                opacity= 0.2,
+                                line=dict(color=colors[agent_idx]),
+                                ),
+                    row=1, col=1,
+                )
+        return fig

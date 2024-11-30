@@ -1,5 +1,5 @@
-from model.agentformer import AgentFormer
-from model.dlow import DLow
+from AF_model.agentformer import AgentFormer
+from AF_model.dlow import DLow
 
 
 model_dict = {

@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.io as pio
+import kaleido
 
 def angle_difference(angle1, angle2):
     diff = angle2 - angle1
@@ -167,5 +168,5 @@ fig.update_layout(width=500, height=400)
 
 fig.show()
 
-pio.write_image(fig, f'mode_metric_results/histogram_dt_h_collapse_{Hpred_time}s.png')
+pio.write_image(fig, f'mode_metric_results/histogram_dt_h_collapse_{Hpred_time}s.png',engine='kaleido')
 

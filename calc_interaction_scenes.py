@@ -8,7 +8,7 @@ sys.path.append(os.getcwd())
 from data.dataloader_debug import data_generator
 from utils.torch import *
 from utils.config import Config
-from model.model_lib import model_dict
+from AF_model.model_lib import model_dict
 from utils.utils import prepare_seed, print_log, mkdir_if_missing
 from utils.eval_utils import *
 from utils.homotopy import *
@@ -38,7 +38,7 @@ log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 """ Get predictions and compute metrics """
 
-save_interaction_maps = True
+save_interaction_maps = False
 # interaction_maps_scenes = ['scene-0103', 'scene-0035', 'scene-0099', 'scene-0108', 'scene-0626', 'scene-0523'] # list of scenenes to save; choose three scenarios
 interaction_maps_scenes = ['scene-0795'] # list of scenenes to save; choose three scenarios
 
